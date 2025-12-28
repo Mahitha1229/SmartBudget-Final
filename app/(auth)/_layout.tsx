@@ -1,23 +1,30 @@
-// app/(auth)/_layout.tsx
-
+//app/(auth)/_layout.tsx
 import { Stack } from 'expo-router';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { Colors } from '../../constants/theme';
 
 export default function AuthLayout() {
+  const { isDarkMode } = useThemeStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
   return (
-    <Stack>
-      {/* Set the Login screen as the initial screen for the Auth Stack */}
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'fade', 
+        // Ensures the background color matches the theme during transitions
+        contentStyle: { backgroundColor: theme.background }
+      }}
+    >
       <Stack.Screen 
         name="login" 
         options={{ 
-          headerShown: false, // Hides the header bar for the login screen
           title: 'Sign In' 
         }} 
       />
-      {/* The Signup screen is also part of this stack */}
       <Stack.Screen 
         name="signup" 
         options={{ 
-          headerShown: false, 
           title: 'Create Account' 
         }} 
       />

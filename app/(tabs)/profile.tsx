@@ -1,298 +1,545 @@
-// app/(tabs)/profile.tsx
-
+// SmartBudget/app/(tabs)/profile-premium.tsx
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-// You will need to install 'expo install @expo/vector-icons' if you haven't
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Switch, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; 
 import { router } from 'expo-router';
-// ⭐️ Use useAuthContext and signOut, not direct access to global 'auth'
-import { useAuthContext } from '../lib/providers';
-import { signOut } from 'firebase/auth';
-import { auth } from '../lib/firebase'; 
+import * as Haptics from 'expo-haptics';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
+import { MotiView } from 'moti';
+import { LinearGradient } from 'expo-linear-gradient';
 
-// --- Setting Item Component ---
+import { useAuthStore } from '../_lib/useAuthStore'; 
+import { useTransactionStore } from '../_lib/useTransactionStore';
+import { useBudgetStore } from '../_lib/useBudgetStore';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { Colors } from '../../constants/theme'; 
 
 interface SettingItemProps {
-    icon: string
-    label: string
-    onPress?: () => void
-    isDestructive?: boolean
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  isDestructive?: boolean;
+  value?: string;
+  children?: React.ReactNode;
+  theme: any; 
+  isLast?: boolean;
+  delay?: number;
+  iconGradient?: readonly [string, string, ...string[]];
 }
 
-const SettingItem = ({ icon, label, onPress, isDestructive }: SettingItemProps) => (
-    <TouchableOpacity style={styles.settingItem} onPress={onPress} activeOpacity={0.7}>
-        <View style={styles.settingLeft}>
-            <View
-                style={[styles.settingIcon, isDestructive ? { backgroundColor: "#FEE2E2" } : { backgroundColor: "#DBEAFE" }]}
-            >
-                <Ionicons name={icon as any} size={20} color={isDestructive ? "#EF4444" : "#0EA5E9"} />
-            </View>
-            <Text style={[styles.settingLabel, isDestructive && { color: "#EF4444" }]}>{label}</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-    </TouchableOpacity>
-)
-
-// --- Main Screen Component ---
-
-export default function ProfileScreen() {
-    const { user } = useAuthContext()
-    const userName = user?.displayName || user?.email?.split("@")[0] || "User"
-    const userEmail = user?.email || "user@example.com"
-
-    const handleLogout = async () => {
-        try {
-            await signOut(auth)
-            // Redirect to the login screen after successful logout
-            router.replace("/(auth)/login") 
-        } catch (error) {
-            console.error("Logout error:", error)
-            // Optionally, show a user-friendly error message
+const SettingItem = ({ 
+  icon, 
+  label, 
+  onPress, 
+  isDestructive, 
+  value, 
+  children, 
+  theme, 
+  isLast, 
+  delay = 0,
+  iconGradient 
+}: SettingItemProps) => (
+  <MotiView
+    from={{ opacity: 0, translateX: -20 }}
+    animate={{ opacity: 1, translateX: 0 }}
+    transition={{ type: 'timing', duration: 400, delay }}
+  >
+    <TouchableOpacity 
+      style={[
+        styles.settingItem, 
+        !isLast && { borderBottomWidth: 1, borderBottomColor: theme.border }
+      ]} 
+      onPress={() => {
+        if (onPress) {
+          Haptics.selectionAsync();
+          onPress();
         }
+      }} 
+      activeOpacity={0.7}
+      disabled={!!children} 
+    >
+      <View style={styles.settingLeft}>
+        <LinearGradient
+          colors={isDestructive ? ['#EF4444', '#DC2626'] as const : iconGradient || ['#6366F1', '#8B5CF6', '#A855F7'] as const}
+          style={styles.settingIcon}
+        >
+          <Ionicons 
+            name={icon as any} 
+            size={20} 
+            color="white"
+          />
+        </LinearGradient>
+        <Text style={[styles.settingLabel, { color: theme.text }]}>
+          {label}
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {value && <Text style={[styles.settingValue, { color: theme.subtext }]}>{value}</Text>}
+        {children ? children : <Ionicons name="chevron-forward" size={18} color={theme.subtext} />}
+      </View>
+    </TouchableOpacity>
+  </MotiView>
+);
+
+export default function PremiumProfileScreen() {
+  const { user, signOut } = useAuthStore();
+  const { transactions, clearTransactions } = useTransactionStore();
+  const budgets = useBudgetStore((state) => state.budgets);
+  const { isDarkMode, toggleTheme } = useThemeStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
+  const userName = user?.displayName || user?.email?.split("@")[0] || "Buddy User";
+  const userEmail = user?.email || "hello@smartbudget.com";
+
+  // Calculate days using the app
+  const daysActive = React.useMemo(() => {
+    if (transactions.length === 0) return 0;
+    
+    try {
+      const oldestTransaction = transactions.reduce((oldest, t) => {
+        let tDate: Date;
+        if (t.date instanceof Date) {
+          tDate = t.date;
+        } else if (typeof t.date === 'object' && 'toDate' in t.date) {
+          tDate = (t.date as any).toDate();
+        } else {
+          tDate = new Date(t.date);
+        }
+        return tDate < oldest ? tDate : oldest;
+      }, new Date());
+      
+      return Math.max(1, Math.floor((Date.now() - oldestTransaction.getTime()) / (1000 * 60 * 60 * 24)));
+    } catch (error) {
+      return 0;
+    }
+  }, [transactions]);
+
+  const handleExportCSV = async () => {
+    if (transactions.length === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("No Data", "Add some transactions first.");
+      return;
     }
 
-    return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            {/* Profile Header Card */}
-            <View style={styles.profileCard}>
-                <View style={styles.avatarSection}>
-                    <View style={styles.avatar}>
-                        <Ionicons name="person" size={40} color="#0EA5E9" />
-                    </View>
-                    <View style={styles.userInfo}>
-                        <Text style={styles.userName}>{userName}</Text>
-                        <Text style={styles.userEmail}>{userEmail}</Text>
-                    </View>
-                </View>
-                <TouchableOpacity style={styles.editButton}>
-                    <Ionicons name="pencil" size={18} color="white" />
-                </TouchableOpacity>
-            </View>
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      router.push('/import-screen' as any);
+    } catch (error: any) {
+      Alert.alert("Error", "Export feature coming soon!");
+    }
+  };
 
-            {/* Account Stats */}
-            <View style={styles.statsContainer}>
-                <View style={styles.statBox}>
-                    <Text style={styles.statValue}>₹85K</Text>
-                    <Text style={styles.statLabel}>Total Balance</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                    <Text style={styles.statValue}>12</Text>
-                    <Text style={styles.statLabel}>Transactions</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statBox}>
-                    <Text style={styles.statValue}>5</Text>
-                    <Text style={styles.statLabel}>Budgets</Text>
-                </View>
-            </View>
+  const handleDeleteData = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Alert.alert(
+      "Delete All Data", 
+      "This will wipe your entire transaction history. Are you sure?", 
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete Everything", 
+          style: "destructive", 
+          onPress: async () => {
+            await clearTransactions(user?.uid!);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Success", "All data cleared.");
+          } 
+        }
+      ]
+    );
+  };
 
-            {/* Settings Sections */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>App Settings</Text>
-                <SettingItem icon="notifications-outline" label="Notifications" />
-                <SettingItem icon="moon-outline" label="Dark Mode" />
-                <SettingItem icon="lock-closed-outline" label="Change Password" />
-            </View>
+  const handleLogout = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert("Sign Out", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      { 
+        text: "Logout", 
+        style: "destructive", 
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/login' as any);
+        } 
+      }
+    ]);
+  };
 
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Data & Import</Text>
-                <SettingItem
-                    icon="document-outline"
-                    label="Import Bank Statements"
-                    // Assuming a route exists for this, as per the new code
-                    onPress={() => router.push("/import-screen")} 
-                />
-                <SettingItem icon="cloud-upload-outline" label="Data Backup" />
-                <SettingItem icon="download-outline" label="Export Data" />
-            </View>
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* PROFILE HEADER */}
+          <MotiView 
+            from={{ opacity: 0, scale: 0.9 }} 
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 15 }}
+            style={styles.profileHeader}
+          >
+            <LinearGradient
+              colors={isDarkMode ? ['#4F46E5', '#7C3AED', '#C084FC'] as const : ['#6366F1', '#8B5CF6', '#A855F7'] as const}
+              style={styles.avatarContainer}
+            >
+              <Text style={styles.avatarText}>{userName.charAt(0).toUpperCase()}</Text>
+              <View style={styles.premiumBadge}>
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+              </View>
+            </LinearGradient>
+            <Text style={[styles.userName, { color: theme.text }]}>{userName}</Text>
+            <Text style={[styles.userEmail, { color: theme.subtext }]}>{userEmail}</Text>
+          </MotiView>
 
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Help & Support</Text>
-                <SettingItem icon="help-circle-outline" label="FAQ" />
-                <SettingItem icon="document-text-outline" label="Privacy Policy" />
-                <SettingItem icon="information-circle-outline" label="About" />
-            </View>
+          {/* STATS GRID */}
+          <View style={styles.statsGrid}>
+            <MotiView 
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 600, delay: 100 }}
+              style={[styles.statCard, { backgroundColor: theme.card }]}
+            >
+              <LinearGradient
+                colors={['#0EA5E9', '#3B82F6'] as const}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="swap-horizontal" size={20} color="white" />
+              </LinearGradient>
+              <Text style={[styles.statValue, { color: theme.text }]}>{transactions.length}</Text>
+              <Text style={[styles.statLabel, { color: theme.subtext }]}>Transactions</Text>
+            </MotiView>
 
-            {/* Logout Button */}
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
-                <Ionicons name="log-out-outline" size={20} color="white" />
-                <Text style={styles.logoutText}>Log Out</Text>
+            <MotiView 
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 600, delay: 200 }}
+              style={[styles.statCard, { backgroundColor: theme.card }]}
+            >
+              <LinearGradient
+                colors={['#10B981', '#059669'] as const}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="pie-chart" size={20} color="white" />
+              </LinearGradient>
+              <Text style={[styles.statValue, { color: theme.text }]}>{budgets.length}</Text>
+              <Text style={[styles.statLabel, { color: theme.subtext }]}>Budgets</Text>
+            </MotiView>
+
+            <MotiView 
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ type: 'timing', duration: 600, delay: 300 }}
+              style={[styles.statCard, { backgroundColor: theme.card }]}
+            >
+              <LinearGradient
+                colors={['#F59E0B', '#D97706'] as const}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="calendar" size={20} color="white" />
+              </LinearGradient>
+              <Text style={[styles.statValue, { color: theme.text }]}>{daysActive}</Text>
+              <Text style={[styles.statLabel, { color: theme.subtext }]}>Days Active</Text>
+            </MotiView>
+          </View>
+
+          {/* APPEARANCE */}
+          <Text style={[styles.groupTitle, { color: theme.subtext }]}>APPEARANCE</Text>
+          <View style={[styles.groupCard, { backgroundColor: theme.card }]}>
+            <SettingItem 
+              theme={theme} 
+              icon="moon-outline" 
+              label="Dark Mode" 
+              isLast
+              delay={400}
+              iconGradient={['#6366F1', '#8B5CF6', '#A855F7'] as const}
+            >
+              <Switch 
+                value={isDarkMode} 
+                onValueChange={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  toggleTheme();
+                }}
+                trackColor={{ false: "#CBD5E1", true: theme.tint }}
+                thumbColor={"#FFFFFF"}
+              />
+            </SettingItem>
+          </View>
+
+          {/* DATA MANAGEMENT */}
+          <Text style={[styles.groupTitle, { color: theme.subtext }]}>DATA MANAGEMENT</Text>
+          <View style={[styles.groupCard, { backgroundColor: theme.card }]}>
+            <SettingItem 
+              theme={theme} 
+              icon="cloud-download-outline" 
+              label="Export to CSV" 
+              onPress={handleExportCSV}
+              delay={500}
+              iconGradient={['#10B981', '#059669'] as const}
+            />
+            <SettingItem 
+              theme={theme} 
+              icon="cloud-upload-outline" 
+              label="Import Transactions" 
+              onPress={() => router.push('/import-screen' as any)}
+              delay={550}
+              iconGradient={['#0EA5E9', '#3B82F6'] as const}
+            />
+            <SettingItem 
+              theme={theme} 
+              icon="trash-outline" 
+              label="Delete All Data" 
+              isDestructive 
+              isLast 
+              onPress={handleDeleteData}
+              delay={600}
+            />
+          </View>
+
+          {/* SUPPORT */}
+          <Text style={[styles.groupTitle, { color: theme.subtext }]}>SUPPORT & INFO</Text>
+          <View style={[styles.groupCard, { backgroundColor: theme.card }]}>
+            <SettingItem 
+              theme={theme} 
+              icon="chatbubble-ellipses-outline" 
+              label="Chat with Buddy AI"
+              onPress={() => router.push('/buddy-ai' as any)}
+              delay={650}
+              iconGradient={['#818CF8', '#C084FC'] as const}
+            />
+            <SettingItem 
+              theme={theme} 
+              icon="star-outline" 
+              label="Rate SmartBudget"
+              delay={700}
+              iconGradient={['#F59E0B', '#D97706'] as const}
+            />
+            <SettingItem 
+              theme={theme} 
+              icon="help-buoy-outline" 
+              label="Help Center" 
+              isLast
+              delay={750}
+              iconGradient={['#0EA5E9', '#3B82F6'] as const}
+            />
+          </View>
+
+          {/* LOGOUT */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'timing', duration: 600, delay: 800 }}
+          >
+            <TouchableOpacity 
+              style={styles.logoutBtn} 
+              onPress={handleLogout}
+            >
+              <LinearGradient
+                colors={['#FEE2E2', '#FEE2E2'] as const}
+                style={styles.logoutGradient}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                <Text style={styles.logoutBtnText}>Sign Out</Text>
+              </LinearGradient>
             </TouchableOpacity>
+          </MotiView>
 
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>SmartBudget v1.0.0</Text>
-            </View>
+          <View style={styles.footerInfo}>
+            <Text style={[styles.versionText, { color: theme.subtext }]}>SmartBudget Premium</Text>
+            <Text style={[styles.versionText, { color: theme.subtext, opacity: 0.5 }]}>
+              Version 2.0.0 • Made with ❤️
+            </Text>
+          </View>
         </ScrollView>
-    )
+      </SafeAreaView>
+    </View>
+  );
 }
 
-// --- Stylesheet ---
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#F0F9FF",
-        paddingHorizontal: 16,
-        paddingTop: 12,
-    },
-    // Profile Card
-    profileCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    avatarSection: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: "#DBEAFE",
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 14,
-    },
-    userInfo: {
-        flex: 1,
-    },
-    userName: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#0F172A",
-    },
-    userEmail: {
-        fontSize: 12,
-        color: "#64748B",
-        marginTop: 2,
-    },
-    editButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#0EA5E9",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    // Stats Container
-    statsContainer: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
-        flexDirection: "row",
-        justifyContent: "space-around",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    statBox: {
-        alignItems: "center",
-        flex: 1,
-    },
-    statValue: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#0EA5E9",
-    },
-    statLabel: {
-        fontSize: 12,
-        color: "#64748B",
-        marginTop: 4,
-    },
-    statDivider: {
-        width: 1,
-        backgroundColor: "#E2E8F0",
-        marginHorizontal: 8,
-    },
-    // Settings Sections
-    section: {
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#0F172A",
-        marginBottom: 12,
-        marginLeft: 4,
-    },
-    settingItem: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 10,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.02,
-        shadowRadius: 3,
-        elevation: 1,
-    },
-    settingLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    settingIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    settingLabel: {
-        fontSize: 15,
-        fontWeight: "600",
-        color: "#0F172A",
-    },
-    // Logout Button
-    logoutButton: {
-        backgroundColor: "#EF4444",
-        borderRadius: 12,
-        padding: 14,
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 8,
-        marginTop: 8,
-        marginBottom: 24,
-        shadowColor: "#EF4444",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    logoutText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "700",
-    },
-    // Footer
-    footer: {
-        alignItems: "center",
-        paddingVertical: 16,
-        borderTopWidth: 1,
-        borderTopColor: "#E2E8F0",
-    },
-    footerText: {
-        fontSize: 12,
-        color: "#94A3B8",
-    },
-})
+  scrollContent: {
+    paddingTop: 20,
+    paddingBottom: 140,
+    paddingHorizontal: 20
+  },
+  profileHeader: { 
+    alignItems: 'center', 
+    marginBottom: 30 
+  },
+  avatarContainer: { 
+    position: 'relative',
+    width: 100, 
+    height: 100, 
+    borderRadius: 50, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    borderWidth: 4, 
+    borderColor: '#FFFFFF',
+    shadowColor: '#6366F1',
+    shadowOffset: { width: 0, height: 8 }, 
+    shadowOpacity: 0.3, 
+    shadowRadius: 16, 
+    elevation: 12 
+  },
+  avatarText: { 
+    color: 'white', 
+    fontSize: 42, 
+    fontWeight: '900', 
+    letterSpacing: -1 
+  },
+  premiumBadge: { 
+    position: 'absolute', 
+    bottom: 2, 
+    right: 2, 
+    width: 32, 
+    height: 32, 
+    borderRadius: 16, 
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    borderWidth: 3, 
+    borderColor: '#FFFFFF',
+    shadowColor: '#10B981',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5
+  },
+  userName: { 
+    fontSize: 26, 
+    fontWeight: "900", 
+    marginTop: 16, 
+    letterSpacing: -0.8 
+  },
+  userEmail: { 
+    fontSize: 14, 
+    marginTop: 4, 
+    fontWeight: '600' 
+  },
+
+  statsGrid: { 
+    flexDirection: 'row', 
+    gap: 10, 
+    marginBottom: 30 
+  },
+  statCard: { 
+    flex: 1, 
+    padding: 16, 
+    borderRadius: 20, 
+    alignItems: 'center', 
+    shadowColor: '#000', 
+    shadowOpacity: 0.05, 
+    shadowRadius: 8, 
+    elevation: 2 
+  },
+  statIconCircle: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 14, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statValue: { 
+    fontSize: 24, 
+    fontWeight: "900", 
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  statLabel: { 
+    fontSize: 11, 
+    fontWeight: '700', 
+    textAlign: 'center' 
+  },
+
+  groupTitle: { 
+    fontSize: 12, 
+    fontWeight: "800", 
+    marginBottom: 12, 
+    marginLeft: 16, 
+    textTransform: 'uppercase', 
+    letterSpacing: 1.3,
+    marginTop: 8
+  },
+  groupCard: { 
+    borderRadius: 24, 
+    paddingHorizontal: 16, 
+    marginBottom: 24, 
+    shadowColor: '#000', 
+    shadowOpacity: 0.04, 
+    shadowRadius: 12, 
+    elevation: 2 
+  },
+
+  settingItem: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    alignItems: "center", 
+    paddingVertical: 16 
+  },
+  settingLeft: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    flex: 1 
+  },
+  settingIcon: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 14, 
+    justifyContent: "center", 
+    alignItems: "center", 
+    marginRight: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  settingLabel: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    flex: 1 
+  },
+  settingValue: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    marginRight: 8 
+  },
+
+  logoutBtn: { 
+    borderRadius: 20, 
+    marginTop: 8,
+    overflow: 'hidden',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  logoutGradient: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    height: 58, 
+    gap: 10,
+  },
+  logoutBtnText: { 
+    color: "#EF4444", 
+    fontSize: 16, 
+    fontWeight: "800" 
+  },
+
+  footerInfo: { 
+    alignItems: 'center', 
+    marginTop: 32, 
+    marginBottom: 20 
+  },
+  versionText: { 
+    fontSize: 12, 
+    fontWeight: '700', 
+    marginBottom: 4 
+  }
+});

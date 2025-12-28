@@ -1,53 +1,132 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+// SmartBudget/constants/theme.ts
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    // Base colors
+    background: '#F8FAFC',
+    card: '#FFFFFF',
+    text: '#0F172A',
+    subtext: '#64748B',
+    border: '#E2E8F0',
+    
+    // Premium gradients
+    primaryGradient: ['#6366F1', '#8B5CF6', '#A855F7'],
+    successGradient: ['#10B981', '#059669'],
+    dangerGradient: ['#EF4444', '#DC2626'],
+    warningGradient: ['#F59E0B', '#D97706'],
+    infoGradient: ['#0EA5E9', '#3B82F6'],
+    
+    // Glass morphism
+    glassBackground: 'rgba(255, 255, 255, 0.7)',
+    glassBorder: 'rgba(255, 255, 255, 0.2)',
+    
+    // Shadows
+    shadow: {
+      small: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+      medium: {
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 5,
+      },
+      large: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.1,
+        shadowRadius: 24,
+        elevation: 8,
+      }
+    },
+    
+    // Category colors
+    categories: {
+      Food: { color: '#F59E0B', gradient: ['#F59E0B', '#EF4444'] },
+      Travel: { color: '#0EA5E9', gradient: ['#0EA5E9', '#8B5CF6'] },
+      Shopping: { color: '#EC4899', gradient: ['#EC4899', '#F97316'] },
+      Bills: { color: '#8B5CF6', gradient: ['#8B5CF6', '#6366F1'] },
+      Entertainment: { color: '#EF4444', gradient: ['#EF4444', '#EC4899'] },
+      Other: { color: '#64748B', gradient: ['#64748B', '#475569'] },
+    },
+    
+    tint: '#6366F1',
   },
+  
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+    // Base colors
+    background: '#0F172A',
+    card: '#1E293B',
+    text: '#F1F5F9',
+    subtext: '#94A3B8',
+    border: '#334155',
+    
+    // Premium gradients
+    primaryGradient: ['#4F46E5', '#7C3AED', '#C084FC'],
+    successGradient: ['#10B981', '#059669'],
+    dangerGradient: ['#EF4444', '#DC2626'],
+    warningGradient: ['#F59E0B', '#D97706'],
+    infoGradient: ['#0EA5E9', '#3B82F6'],
+    
+    // Glass morphism
+    glassBackground: 'rgba(30, 41, 59, 0.7)',
+    glassBorder: 'rgba(148, 163, 184, 0.1)',
+    
+    // Shadows
+    shadow: {
+      small: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 2,
+      },
+      medium: {
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 5,
+      },
+      large: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.4,
+        shadowRadius: 24,
+        elevation: 8,
+      }
+    },
+    
+    // Category colors (same as light)
+    categories: {
+      Food: { color: '#F59E0B', gradient: ['#F59E0B', '#EF4444'] },
+      Travel: { color: '#0EA5E9', gradient: ['#0EA5E9', '#8B5CF6'] },
+      Shopping: { color: '#EC4899', gradient: ['#EC4899', '#F97316'] },
+      Bills: { color: '#8B5CF6', gradient: ['#8B5CF6', '#6366F1'] },
+      Entertainment: { color: '#EF4444', gradient: ['#EF4444', '#EC4899'] },
+      Other: { color: '#64748B', gradient: ['#64748B', '#475569'] },
+    },
+    
+    tint: '#818CF8',
+  }
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+export const AnimationPresets = {
+  springy: {
+    type: 'spring',
+    damping: 15,
+    stiffness: 120,
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  smooth: {
+    type: 'timing',
+    duration: 400,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  quick: {
+    type: 'timing',
+    duration: 200,
   },
-});
+};

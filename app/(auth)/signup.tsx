@@ -1,6 +1,7 @@
+// app/(auth)/signup.tsx
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import {
   View,
   Text,
@@ -11,12 +12,20 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native"
 import { createUserWithEmailAndPassword } from "firebase/auth"
-import { auth } from "../lib/firebase" 
+import { doc, setDoc } from "firebase/firestore"
+import { auth, db } from "../_lib/firebase" 
 import { router } from "expo-router"
+import { useThemeStore } from "../_lib/useThemeStore"
+import { Colors } from "../../constants/theme"
+import { Ionicons } from "@expo/vector-icons"
 
 export default function SignupScreen() {
+  const { isDarkMode } = useThemeStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -38,10 +47,27 @@ export default function SignupScreen() {
 
     setLoading(true)
     try {
-      await createUserWithEmailAndPassword(auth, email, password)
-      router.replace("/login") // redirect to login after signup
+      // 1. Create User in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user;
+
+      // 2. Initialize Firestore User Document
+      await setDoc(doc(db, "users", user.uid), {
+        userId: user.uid,
+        email: user.email,
+        displayName: email.split('@')[0], 
+        createdAt: new Date().toISOString(),
+        monthlyBudget: 0,
+        profileImage: null,
+      });
+
+      // 3. Navigation handled by RootLayout Auth listener, 
+      // but we use replace to ensure the stack is cleared.
+      router.replace("/(tabs)"); 
+      
     } catch (err: any) {
-      setError(err.message || "Signup failed. Please try again.")
+      const errorMessage = err.message || "Signup failed.";
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -50,24 +76,32 @@ export default function SignupScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Header Section */}
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+           <Ionicons name="arrow-back" size={24} color={theme.text} />
+        </TouchableOpacity>
+
         <View style={styles.header}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join SmartBudget and manage your finances</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
+          <Text style={[styles.subtitle, { color: theme.subtext }]}>Join SmartBudget and take control of your money</Text>
         </View>
 
-        <View style={styles.formContainer}>
+        {/* Input Fields */}
+        <View style={[styles.formContainer, { backgroundColor: theme.card }]}>
           <View style={styles.inputWrapper}>
-            <Text style={styles.label}>Email Address</Text>
+            <Text style={[styles.label, { color: theme.subtext }]}>Email Address</Text>
             <TextInput
-              style={[styles.input, emailFocused && styles.inputFocused, error && styles.inputError]}
+              style={[
+                styles.input, 
+                { color: theme.text, backgroundColor: isDarkMode ? theme.background : '#F8FAFC', borderColor: theme.border },
+                emailFocused && { borderColor: theme.tint }
+              ]}
               placeholder="name@example.com"
-              placeholderTextColor="#A0AEC0"
+              placeholderTextColor={theme.subtext}
               onChangeText={setEmail}
               onFocus={() => setEmailFocused(true)}
               onBlur={() => setEmailFocused(false)}
@@ -78,11 +112,15 @@ export default function SignupScreen() {
           </View>
 
           <View style={styles.inputWrapper}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={[styles.label, { color: theme.subtext }]}>Password</Text>
             <TextInput
-              style={[styles.input, passwordFocused && styles.inputFocused, error && styles.inputError]}
+              style={[
+                styles.input, 
+                { color: theme.text, backgroundColor: isDarkMode ? theme.background : '#F8FAFC', borderColor: theme.border },
+                passwordFocused && { borderColor: theme.tint }
+              ]}
               placeholder="••••••••"
-              placeholderTextColor="#A0AEC0"
+              placeholderTextColor={theme.subtext}
               secureTextEntry
               onChangeText={setPassword}
               onFocus={() => setPasswordFocused(true)}
@@ -91,59 +129,44 @@ export default function SignupScreen() {
             />
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.btn, loading && styles.btnDisabled]}
+            style={[styles.signupBtn, { backgroundColor: theme.tint }, loading && { opacity: 0.7 }]}
             onPress={handleSignup}
             disabled={loading}
-            activeOpacity={0.8}
           >
-            {loading ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.btnText}>Sign Up</Text>}
-          </TouchableOpacity>
-
-          <View style={styles.dividerContainer}>
-            <View style={styles.divider} />
-            <Text style={styles.dividerText}>Already have an account?</Text>
-            <View style={styles.divider} />
-          </View>
-
-          <TouchableOpacity onPress={() => router.push("/login")} disabled={loading} activeOpacity={0.7}>
-            <Text style={styles.loginLink}>Login</Text>
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupBtnText}>Get Started</Text>}
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity 
+          onPress={() => router.push("/login")} 
+          style={styles.footerLink}
+        >
+          <Text style={[styles.footerText, { color: theme.subtext }]}>
+            Already have an account? <Text style={{ color: theme.tint, fontWeight: '700' }}>Login</Text>
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8FAFC" },
-  scrollContent: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 20, paddingVertical: 40 },
-  header: { alignItems: "center", marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: "700", color: "#1E293B", marginBottom: 8, letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: "#64748B", fontWeight: "400" },
-  formContainer: {
-    backgroundColor: "white",
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  backButton: { position: 'absolute', top: 60, left: 24, zIndex: 10 },
+  header: { alignItems: "flex-start", marginBottom: 32, marginTop: 40 },
+  title: { fontSize: 32, fontWeight: "800", letterSpacing: -1 },
+  subtitle: { fontSize: 16, marginTop: 8, lineHeight: 22 },
+  formContainer: { borderRadius: 24, padding: 24, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 },
   inputWrapper: { marginBottom: 20 },
-  label: { fontSize: 13, fontWeight: "600", color: "#475569", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
-  input: { borderWidth: 1.5, borderColor: "#E2E8F0", borderRadius: 10, padding: 14, fontSize: 16, color: "#1E293B", backgroundColor: "#F8FAFC", fontWeight: "500" },
-  inputFocused: { borderColor: "#0EA5E9", backgroundColor: "#F0F9FF" },
-  inputError: { borderColor: "#EF4444" },
-  error: { color: "#EF4444", fontSize: 13, marginBottom: 16, fontWeight: "500", paddingLeft: 4 },
-  btn: { backgroundColor: "#0EA5E9", padding: 14, borderRadius: 10, alignItems: "center", justifyContent: "center", marginTop: 8, shadowColor: "#0EA5E9", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  btnDisabled: { opacity: 0.7 },
-  btnText: { color: "white", fontSize: 16, fontWeight: "700", letterSpacing: 0.3 },
-  dividerContainer: { flexDirection: "row", alignItems: "center", marginVertical: 24 },
-  divider: { flex: 1, height: 1, backgroundColor: "#E2E8F0" },
-  dividerText: { marginHorizontal: 12, fontSize: 13, color: "#94A3B8", fontWeight: "500" },
-  loginLink: { textAlign: "center", color: "#0EA5E9", fontSize: 14, fontWeight: "600", paddingVertical: 12 },
+  label: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 },
+  input: { borderWidth: 1.5, borderRadius: 14, padding: 16, fontSize: 16 },
+  errorText: { color: "#EF4444", fontSize: 14, fontWeight: "600", textAlign: "center", marginBottom: 16 },
+  signupBtn: { height: 56, borderRadius: 16, justifyContent: "center", alignItems: "center", marginTop: 8 },
+  signupBtnText: { color: "white", fontSize: 16, fontWeight: "800" },
+  footerLink: { marginTop: 32, alignItems: "center" },
+  footerText: { fontSize: 15 },
 })

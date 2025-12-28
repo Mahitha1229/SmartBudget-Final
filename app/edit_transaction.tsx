@@ -1,18 +1,18 @@
-// SmartBudget/app/add-transaction-premium.tsx
+// SmartBudget/app/edit_transaction-premium.tsx
 import React, { useState, useEffect } from 'react';
 import { 
-    View, 
-    Text, 
-    TextInput, 
-    Alert, 
-    ActivityIndicator, 
-    TouchableOpacity, 
-    Platform,
-    ScrollView, 
-    StyleSheet, 
-    KeyboardAvoidingView
+  View, 
+  Text, 
+  TextInput, 
+  Alert, 
+  ActivityIndicator, 
+  TouchableOpacity, 
+  Platform,
+  ScrollView, 
+  StyleSheet, 
+  KeyboardAvoidingView
 } from 'react-native';
-import { router } from 'expo-router'; 
+import { router, useLocalSearchParams } from 'expo-router'; 
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
@@ -32,34 +32,37 @@ const GRADIENTS = {
   primaryDark: ['#4F46E5', '#7C3AED', '#C084FC'] as const,
   success: ['#10B981', '#059669'] as const,
   danger: ['#EF4444', '#DC2626'] as const,
+  warning: ['#F59E0B', '#D97706'] as const,
 };
 
 const QUICK_AMOUNTS = [50, 100, 200, 500, 1000];
 
-export default function PremiumAddTransactionScreen() {
+export default function PremiumEditTransactionScreen() {
+  const params = useLocalSearchParams();
   const user = useAuthStore(state => state.user);
   const { isDarkMode } = useThemeStore();
   const theme = isDarkMode ? Colors.dark : Colors.light;
   const budgets = useBudgetStore(state => state.budgets);
 
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [type, setType] = useState<'debit' | 'credit'>('debit');
-  const [date, setDate] = useState(new Date());
+  const transactionId = params.id as string;
+  const [amount, setAmount] = useState(Math.abs(parseFloat(params.amount as string || '0')).toString());
+  const [description, setDescription] = useState(params.description as string || '');
+  const [category, setCategory] = useState(params.category as string || '');
+  const [type, setType] = useState<'debit' | 'credit'>(params.type as 'debit' | 'credit' || 'debit');
+  const [date, setDate] = useState(params.date ? new Date(params.date as string) : new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const availableCategories = CATEGORIES;
+  const updateTransaction = useTransactionStore(state => state.updateTransaction);
+  const deleteTransaction = useTransactionStore(state => state.deleteTransaction);
 
   useEffect(() => {
-    if (!category && availableCategories.length > 0) {
-      setCategory(availableCategories[0].name);
+    if (!category && CATEGORIES.length > 0) {
+      setCategory(CATEGORIES[0].name);
     }
   }, []);
-
-  const saveToStore = useTransactionStore(state => state.addTransaction);
 
   const handleQuickAmount = (value: number) => {
     setAmount(value.toString());
@@ -72,16 +75,16 @@ export default function PremiumAddTransactionScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSave = async () => {
+  const handleUpdate = async () => {
     if (!user?.uid || !amount || parseFloat(amount) <= 0) {
       Alert.alert('Missing Info', 'Please enter a valid amount.');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
     
     if (!category && type === 'debit') {
       Alert.alert('Missing Info', 'Please select a category.');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
     
@@ -92,26 +95,56 @@ export default function PremiumAddTransactionScreen() {
       const transactionCategory = type === 'credit' ? 'Income' : category;
       const finalAmount = type === 'debit' ? -Math.abs(parseFloat(amount)) : Math.abs(parseFloat(amount));
       
-      await saveToStore({ 
+      await updateTransaction({ 
+        id: transactionId,
+        userId: user.uid,
         amount: finalAmount,
         category: transactionCategory,
         description: description.trim() || transactionCategory,
         type: type,
         date: date,
-      }, user.uid);
+      });
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back(); 
     } catch (error) {
-      Alert.alert('Error', 'Failed to save transaction.');
+      Alert.alert('Error', 'Failed to update transaction.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleDelete = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Delete Transaction',
+      'Are you sure you want to delete this transaction? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            try {
+              await deleteTransaction(transactionId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              router.back();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete transaction.');
+              setDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const currentSuggestions = getDescriptionSuggestions(category);
   const hasBudget = budgets.some(b => b.category === category);
   const currentBudget = budgets.find(b => b.category === category);
+  const originalAmount = Math.abs(parseFloat(params.amount as string || '0'));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }} edges={['top']}>
@@ -128,10 +161,20 @@ export default function PremiumAddTransactionScreen() {
             }} 
             style={[styles.backCircle, { backgroundColor: theme.card }]}
           >
-            <Ionicons name="close" size={24} color={theme.text} />
+            <Ionicons name="arrow-back" size={24} color={theme.text} />
           </TouchableOpacity>
-          <Text style={[styles.navTitle, { color: theme.text }]}>New Transaction</Text>
-          <View style={{ width: 44 }} /> 
+          <Text style={[styles.navTitle, { color: theme.text }]}>Edit Transaction</Text>
+          <TouchableOpacity 
+            onPress={handleDelete}
+            disabled={deleting}
+            style={[styles.deleteCircle, { backgroundColor: '#FEE2E2' }]}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <Ionicons name="trash" size={20} color="#EF4444" />
+            )}
+          </TouchableOpacity>
         </View>
 
         <ScrollView 
@@ -139,11 +182,32 @@ export default function PremiumAddTransactionScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          {/* ORIGINAL AMOUNT INFO */}
+          <MotiView
+            from={{ opacity: 0, translateY: -10 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            style={[styles.infoCard, { backgroundColor: theme.card }]}
+          >
+            <View style={styles.infoRow}>
+              <Ionicons name="information-circle" size={18} color={theme.tint} />
+              <Text style={[styles.infoText, { color: theme.subtext }]}>
+                Original: {type === 'debit' ? '-' : '+'}₹{originalAmount.toLocaleString('en-IN')}
+              </Text>
+            </View>
+            <Text style={[styles.infoDate, { color: theme.subtext }]}>
+              Created: {new Date(params.date as string).toLocaleDateString('en-IN', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+              })}
+            </Text>
+          </MotiView>
+
           {/* AMOUNT CARD */}
           <MotiView
             from={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 15 }}
+            transition={{ type: 'spring', damping: 15, delay: 50 }}
           >
             <LinearGradient
               colors={type === 'debit' 
@@ -161,7 +225,6 @@ export default function PremiumAddTransactionScreen() {
                   placeholder="0"
                   placeholderTextColor={theme.subtext}
                   keyboardType="decimal-pad"
-                  autoFocus
                   value={amount}
                   onChangeText={setAmount}
                   selectionColor={theme.tint}
@@ -177,7 +240,7 @@ export default function PremiumAddTransactionScreen() {
             transition={{ type: 'timing', delay: 100 }}
             style={styles.quickAmountsRow}
           >
-            {QUICK_AMOUNTS.map((amt, idx) => (
+            {QUICK_AMOUNTS.map((amt) => (
               <TouchableOpacity
                 key={amt}
                 onPress={() => handleQuickAmount(amt)}
@@ -262,7 +325,7 @@ export default function PremiumAddTransactionScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.categoryScroll}
               >
-                {availableCategories.map((cat, idx) => {
+                {CATEGORIES.map((cat, idx) => {
                   const isSelected = category === cat.name;
                   const catHasBudget = budgets.some(b => b.category === cat.name);
                   
@@ -315,9 +378,9 @@ export default function PremiumAddTransactionScreen() {
                   style={[
                     styles.budgetWarning,
                     { 
-                      backgroundColor: currentBudget.spent + parseFloat(amount) > currentBudget.limit 
+                      backgroundColor: (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit 
                         ? '#FEE2E2' 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
+                        : (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit * 0.8
                         ? '#FEF3C7'
                         : '#DCFCE7'
                     }
@@ -325,15 +388,15 @@ export default function PremiumAddTransactionScreen() {
                 >
                   <Ionicons 
                     name={
-                      currentBudget.spent + parseFloat(amount) > currentBudget.limit 
+                      (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit 
                         ? "warning" 
                         : "information-circle"
                     } 
                     size={16} 
                     color={
-                      currentBudget.spent + parseFloat(amount) > currentBudget.limit 
+                      (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit 
                         ? "#EF4444" 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
+                        : (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit * 0.8
                         ? "#F59E0B"
                         : "#10B981"
                     } 
@@ -341,16 +404,16 @@ export default function PremiumAddTransactionScreen() {
                   <Text style={[
                     styles.budgetWarningText,
                     { 
-                      color: currentBudget.spent + parseFloat(amount) > currentBudget.limit 
+                      color: (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit 
                         ? "#EF4444" 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
+                        : (currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit * 0.8
                         ? "#F59E0B"
                         : "#10B981"
                     }
                   ]}>
-                    {currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                      ? `Will exceed ${category} budget by ₹${Math.round(currentBudget.spent + parseFloat(amount) - currentBudget.limit)}`
-                      : `Within budget (₹${Math.round(currentBudget.limit - (currentBudget.spent + parseFloat(amount)))} remaining)`
+                    {(currentBudget.spent - originalAmount + parseFloat(amount)) > currentBudget.limit 
+                      ? `Will exceed ${category} budget by ₹${Math.round((currentBudget.spent - originalAmount + parseFloat(amount)) - currentBudget.limit)}`
+                      : `Within budget (₹${Math.round(currentBudget.limit - (currentBudget.spent - originalAmount + parseFloat(amount)))} remaining)`
                     }
                   </Text>
                 </MotiView>
@@ -448,7 +511,7 @@ export default function PremiumAddTransactionScreen() {
         {/* SUBMIT BUTTON */}
         <View style={[styles.footer, { backgroundColor: theme.background }]}>
           <TouchableOpacity 
-            onPress={handleSave}
+            onPress={handleUpdate}
             disabled={loading || !amount}
             style={{ borderRadius: 20, overflow: 'hidden' }}
           >
@@ -464,7 +527,7 @@ export default function PremiumAddTransactionScreen() {
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.saveButtonText}>Add Transaction</Text>
+                  <Text style={styles.saveButtonText}>Update Transaction</Text>
                 </>
               )}
             </LinearGradient>
@@ -498,8 +561,46 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  deleteCircle: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   navTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   scrollContent: { padding: 20, paddingBottom: 40 },
+  
+  infoCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  infoText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  infoDate: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 26,
+  },
   
   amountCard: { 
     borderRadius: 28, 

@@ -1,467 +1,980 @@
-// app/(tabs)/index.tsx
+// SmartBudget/app/(tabs)/index.tsx
+import React, { useMemo, useEffect, useState } from "react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Alert, TextInput, Modal } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { MotiView } from 'moti';
+import Svg, { Circle } from 'react-native-svg';
 
-import React, { useState, useEffect } from "react"
-// Combined imports from both files, including TouchableOpacity and router
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native"
-import { Ionicons } from "@expo/vector-icons"
-// Assuming these utilities are in a consistent location (../lib/providers, ../lib/firebase)
-import { useAuthContext } from "../lib/providers" 
-import { router } from "expo-router"
-import { signOut } from "firebase/auth"
-// NOTE: Assuming your firebase auth instance is accessible at "../lib/firebase" or similar
-// I will use 'firebase/auth' and 'auth' from the first block's logic
-import { auth } from "../lib/firebase" // ⭐️ FIX: Using local path, adjust if needed
-import { Transaction } from '../types'; // ⭐️ FIX: Using local path, adjust if needed
+import { useAuthStore } from '../_lib/useAuthStore'; 
+import { useTransactionData, useTransactionStore } from '../_lib/useTransactionStore';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { Colors } from '../../constants/theme';
+import { useBudgetStore } from '../_lib/useBudgetStore';
+import { useGoalsStore } from '../_lib/useGoalsStore';
 
-// NOTE: Since the new UI TransactionItem is simpler, we are keeping the type from the old file
-// and adding the required fields for the new UI to work smoothly.
+const { width } = Dimensions.get('window');
 
-// --- MOCK DATA AND ITEM COMPONENTS ---
+// ✨ BALANCE CARD WITH GLASSMORPHISM
+const BalanceCard = ({ balance, income, expense, theme, isDarkMode }: any) => (
+  <MotiView
+    from={{ opacity: 0, scale: 0.9 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ type: 'spring', damping: 18 }}
+  >
+    <LinearGradient 
+      colors={theme.primaryGradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.balanceCard, theme.shadow.large]}
+    >
+      {/* Decorative circles */}
+      <View style={styles.decorativeCircle1} />
+      <View style={styles.decorativeCircle2} />
+      
+      <View style={styles.balanceHeader}>
+        <View>
+          <Text style={styles.balanceLabel}>Total Balance</Text>
+          <TouchableOpacity style={styles.accountBadge}>
+            <Ionicons name="diamond" size={12} color="#FFD700" />
+            <Text style={styles.accountText}>Standard</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.eyeButton}>
+          <Ionicons name="eye" size={20} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
+      </View>
 
-// Defining the merged Transaction Interface (must match what's used in components and mocks)
-interface DashboardTransaction {
-    id: string;
-    description: string;
-    amount: number;
-    category: string;
-    type: "debit" | "credit";
-    date: Date;
-    // Fields required by the second mock's function signature, needed for compilation 
-    userId?: string; 
-    source?: string;
-    createdAt?: any;
-}
+      <MotiView
+        from={{ opacity: 0, translateY: 20 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ delay: 200 }}
+      >
+        <Text style={styles.balanceAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+        <Text style={styles.balanceChange}>
+          <Ionicons name="trending-up" size={12} color="#10B981" /> 
+          {' +2.5% from last month'}
+        </Text>
+      </MotiView>
 
-// Using the mock data structure and values from the first (more complete) block
-const mockFetchRecentTransactions = async (): Promise<DashboardTransaction[]> => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay for dashboard
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <View style={styles.statIconWrapper}>
+            <Ionicons name="arrow-down-circle" size={16} color="#10B981" />
+          </View>
+          <View>
+            <Text style={styles.statLabel}>Income</Text>
+            <Text style={styles.statValue}>₹{income.toLocaleString('en-IN')}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.statDivider} />
+        
+        <View style={styles.statItem}>
+          <View style={styles.statIconWrapper}>
+            <Ionicons name="arrow-up-circle" size={16} color="#EF4444" />
+          </View>
+          <View>
+            <Text style={styles.statLabel}>Expense</Text>
+            <Text style={styles.statValue}>₹{expense.toLocaleString('en-IN')}</Text>
+          </View>
+        </View>
+      </View>
 
-    return [
-        {
-            id: "1",
-            description: "Zomato Order",
-            amount: 450.5,
-            category: "Food",
-            type: "debit",
-            date: new Date(Date.now() - 86400000),
-        },
-        {
-            id: "2",
-            description: "Monthly Salary",
-            amount: 50000,
-            category: "Income",
-            type: "credit",
-            date: new Date(Date.now() - 172800000),
-        },
-        {
-            id: "3",
-            description: "Uber Ride",
-            amount: 180,
-            category: "Travel",
-            type: "debit",
-            date: new Date(Date.now() - 259200000),
-        },
-    ] as DashboardTransaction[];
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.quickActionBtn} onPress={() => router.push('/add-transaction')}>
+          <Ionicons name="add-circle" size={20} color="white" />
+          <Text style={styles.quickActionText}>Add</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn}>
+          <Ionicons name="swap-horizontal" size={20} color="white" />
+          <Text style={styles.quickActionText}>Transfer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickActionBtn}>
+          <Ionicons name="card" size={20} color="white" />
+          <Text style={styles.quickActionText}>Cards</Text>
+        </TouchableOpacity>
+      </View>
+    </LinearGradient>
+  </MotiView>
+);
+
+// 💡 WALLET GOALS WIDGET - NOW WITH REAL DATA
+const GoalWidget = ({ goal, theme, onAddContribution }: any) => {
+  if (!goal) return null;
+  
+  const progress = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+  const size = 80;
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (circumference * progress) / 100;
+
+  return (
+    <TouchableOpacity 
+      style={[styles.goalCard, { backgroundColor: theme.card }, theme.shadow.small]}
+      onPress={() => onAddContribution(goal)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.goalContent}>
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+            <View style={[styles.goalIconCircle, { backgroundColor: `${goal.color}20` }]}>
+              <Ionicons name={goal.icon} size={16} color={goal.color} />
+            </View>
+            <Text style={[styles.goalTitle, { color: theme.text }]}>{goal.name}</Text>
+          </View>
+          <Text style={[styles.goalSubtitle, { color: theme.subtext }]}>
+            ₹{goal.currentAmount.toLocaleString('en-IN')} of ₹{goal.targetAmount.toLocaleString('en-IN')}
+          </Text>
+          <View style={styles.goalProgress}>
+            <View style={[styles.goalBar, { backgroundColor: theme.border }]}>
+              <LinearGradient
+                colors={[goal.color, goal.color] as const}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.goalBarFill, { width: `${progress}%` }]}
+              />
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.goalCircle}>
+          <Svg width={size} height={size}>
+            <Circle
+              stroke={theme.border}
+              fill="none"
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              strokeWidth={strokeWidth}
+            />
+            <Circle
+              stroke={goal.color}
+              fill="none"
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${circumference} ${circumference}`}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            />
+          </Svg>
+          <View style={styles.goalPercentage}>
+            <Text style={[styles.goalPercentText, { color: theme.text }]}>{Math.round(progress)}%</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
 };
 
+// 🎯 BUDGET STATUS MINI CARDS
+const BudgetMiniCard = ({ budget, theme }: any) => {
+  const progress = Math.min((budget.spent / budget.limit) * 100, 100);
+  const isOver = budget.spent > budget.limit;
+  
+  return (
+    <View style={[styles.miniCard, { backgroundColor: theme.card }, theme.shadow.small]}>
+      <View style={[styles.miniIconCircle, { backgroundColor: `${budget.color}20` }]}>
+        <Ionicons name={budget.icon} size={20} color={budget.color} />
+      </View>
+      <Text style={[styles.miniLabel, { color: theme.text }]}>{budget.category}</Text>
+      <Text style={[styles.miniAmount, { color: isOver ? '#EF4444' : theme.subtext }]}>
+        ₹{Math.round(budget.spent).toLocaleString()}
+      </Text>
+      <View style={[styles.miniProgress, { backgroundColor: theme.border }]}>
+        <View 
+          style={[
+            styles.miniProgressFill, 
+            { width: `${progress}%`, backgroundColor: isOver ? '#EF4444' : budget.color }
+          ]} 
+        />
+      </View>
+    </View>
+  );
+};
 
-// Simple component for a single transaction row (Using the improved UI from the first block)
-const TransactionItem = ({ transaction }: { transaction: DashboardTransaction }) => {
-    const isDebit = transaction.type === "debit"
-    const amountColor = isDebit ? "#EF4444" : "#10B981"
-    const sign = isDebit ? "-" : "+"
+// 🔥 TRENDING TRANSACTION CARD
+const TrendingCard = ({ transaction, theme, index }: any) => (
+  <MotiView
+    from={{ opacity: 0, translateX: -20 }}
+    animate={{ opacity: 1, translateX: 0 }}
+    transition={{ delay: index * 100 }}
+    style={[styles.trendCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+  >
+    <LinearGradient
+      colors={transaction.type === 'credit' ? ['#10B981', '#059669'] as const : ['#EF4444', '#DC2626'] as const}
+      style={styles.trendIcon}
+    >
+      <Ionicons 
+        name={transaction.type === 'credit' ? 'trending-down' : 'trending-up'} 
+        size={18} 
+        color="white" 
+      />
+    </LinearGradient>
+    <View style={{ flex: 1 }}>
+      <Text style={[styles.trendDesc, { color: theme.text }]} numberOfLines={1}>
+        {transaction.description}
+      </Text>
+      <Text style={[styles.trendCat, { color: theme.subtext }]}>
+        {transaction.category} • {new Date(transaction.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+      </Text>
+    </View>
+    <Text style={[
+      styles.trendAmount, 
+      { color: transaction.type === 'credit' ? '#10B981' : '#EF4444' }
+    ]}>
+      {transaction.type === 'credit' ? '+' : '-'}₹{Math.abs(transaction.amount).toLocaleString('en-IN')}
+    </Text>
+  </MotiView>
+);
 
-    return (
-        <View style={styles.transactionRow}>
-            <View style={styles.transactionLeft}>
-                {/* Dynamic Icon/Background based on debit/credit type */}
-                <View style={[styles.categoryIcon, { backgroundColor: isDebit ? "#FEE2E2" : "#D1FAE5" }]}>
-                    <Ionicons name={isDebit ? "arrow-down" : "arrow-up"} size={18} color={amountColor} />
-                </View>
-                <View>
-                    <Text style={styles.transactionName}>{transaction.description}</Text>
-                    {/* Simplified meta data to just category for clean dashboard view */}
-                    <Text style={styles.transactionMeta}>{transaction.category}</Text>
-                </View>
-            </View>
-            <Text style={[styles.transactionAmount, { color: amountColor }]}>
-                {sign}₹{transaction.amount.toFixed(2)}
-            </Text>
-        </View>
-    )
-}
+// 🏠 MAIN HOME SCREEN
+export default function PremiumDashboard() {
+  const user = useAuthStore(state => state.user);
+  const isAuthInitialized = useAuthStore(state => state.isInitialized);
+  const { isDarkMode } = useThemeStore();
+  const theme = isDarkMode ? Colors.dark : Colors.light;
+  const fetchTransactions = useTransactionStore(state => state.fetchTransactions);
+  
+  const { 
+    transactions, 
+    isLoading, 
+    isInitialized: isDataInitialized,
+    currentBalance, 
+    totalIncome, 
+    totalExpense, 
+  } = useTransactionData();
 
-// --- DASHBOARD SCREEN COMPONENT ---
+  const budgets = useBudgetStore(state => state.budgets);
+  const goals = useGoalsStore(state => state.goals);
+  const addContribution = useGoalsStore(state => state.addContribution);
+  const addGoal = useGoalsStore(state => state.addGoal);
+  
+  const [showContributionModal, setShowContributionModal] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<any>(null);
+  const [contributionAmount, setContributionAmount] = useState('');
+  
+  const [showAddGoalModal, setShowAddGoalModal] = useState(false);
+  const [newGoalName, setNewGoalName] = useState('');
+  const [newGoalTarget, setNewGoalTarget] = useState('');
 
-export default function DashboardScreen() {
-    const { user } = useAuthContext();
-    
-    // Using the user name logic from the first block
-    const userName = user?.displayName || user?.email?.split("@")[0] || "Guest";
-    
-    // State for transactions
-    const [transactions, setTransactions] = useState<DashboardTransaction[]>([]); 
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        // Fetch data when the component mounts
-        mockFetchRecentTransactions().then(data => {
-            setTransactions(data);
-            setIsLoading(false);
-        });
-    }, []);
-
-    // New Logout Handler
-    const handleLogout = async () => {
-        try {
-            await signOut(auth)
-            router.replace("/login")
-        } catch (error) {
-            console.error("Logout error:", error)
-        }
+  useEffect(() => {
+    if (user?.uid && isAuthInitialized) {
+      fetchTransactions(user.uid);
+      useGoalsStore.getState().initialize(user.uid);
     }
+  }, [user?.uid, isAuthInitialized]);
+
+  const handleAddContribution = (goal: any) => {
+    setSelectedGoal(goal);
+    setShowContributionModal(true);
+  };
+
+  const handleSubmitContribution = async () => {
+    if (!selectedGoal || !contributionAmount || !user?.uid) return;
     
-    // Transaction Content Logic
-    const transactionContent = isLoading ? (
-        <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#0EA5E9" />
-        </View>
-    ) : (
-        <View style={styles.transactionsList}>
-            {transactions.map(item => (
-                <TransactionItem key={item.id} transaction={item} />
-            ))}
-        </View>
-    );
+    const amount = parseFloat(contributionAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount');
+      return;
+    }
 
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await addContribution(selectedGoal.id, user.uid, amount);
+      Alert.alert('Success', `Added ₹${amount.toLocaleString('en-IN')} to ${selectedGoal.name}!`);
+      setShowContributionModal(false);
+      setContributionAmount('');
+      setSelectedGoal(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add contribution');
+    }
+  };
 
+  const handleCreateGoal = async () => {
+    if (!newGoalName || !newGoalTarget || !user?.uid) return;
+    
+    const target = parseFloat(newGoalTarget);
+    if (isNaN(target) || target <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid target amount');
+      return;
+    }
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await addGoal({
+        userId: user.uid,
+        name: newGoalName,
+        targetAmount: target,
+        icon: 'flag',
+        color: '#0EA5E9',
+      });
+      Alert.alert('Success', `Goal "${newGoalName}" created!`);
+      setShowAddGoalModal(false);
+      setNewGoalName('');
+      setNewGoalTarget('');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create goal');
+    }
+  };
+
+  if (!isAuthInitialized || (isLoading && !isDataInitialized)) {
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            
-            {/* 1. Header with greeting (Improved UI) */}
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.greeting}>Hi, {userName} 👋</Text>
-                    <Text style={styles.subgreeting}>Here's your financial snapshot</Text>
-                </View>
-                <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/profile")}> 
-                    <View style={styles.profileAvatar}>
-                        <Ionicons name="person" size={24} color="#0EA5E9" />
-                    </View>
-                </TouchableOpacity>
-            </View>
+      <View style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme.tint} />
+      </View>
+    );
+  }
 
-            {/* 2. Main Balance Card (Improved UI) */}
-            <View style={styles.balanceCard}>
-                <View>
-                    <Text style={styles.balanceLabel}>Total Balance</Text>
-                    <Text style={styles.balanceAmount}>₹ 85,000</Text>
-                    <Text style={styles.balanceChange}>+12% from last month</Text>
-                </View>
-                <View style={styles.balanceIcon}>
-                    <Ionicons name="wallet" size={40} color="#0EA5E9" />
-                </View>
-            </View>
-            
-            {/* 3. Stats Grid (New Feature/Improved UI) */}
-            <View style={styles.statsGrid}>
-                <View style={styles.statCard}>
-                    <View style={[styles.statIcon, { backgroundColor: "#DBEAFE" }]}>
-                        <Ionicons name="arrow-down" size={20} color="#0EA5E9" />
-                    </View>
-                    <Text style={styles.statLabel}>Spending</Text>
-                    <Text style={styles.statValue}>₹15,300</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <View style={[styles.statIcon, { backgroundColor: "#D1FAE5" }]}>
-                        <Ionicons name="arrow-up" size={20} color="#10B981" />
-                    </View>
-                    <Text style={styles.statLabel}>Income</Text>
-                    <Text style={styles.statValue}>₹50,000</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <View style={[styles.statIcon, { backgroundColor: "#FEE2E2" }]}>
-                        <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                    </View>
-                    <Text style={styles.statLabel}>Savings</Text>
-                    <Text style={styles.statValue}>34.7%</Text>
-                </View>
-            </View>
+  const userName = user?.displayName?.split(' ')[0] || 'Friend';
+  const greeting = new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 18 ? 'Good Afternoon' : 'Good Evening';
 
-            {/* 4. Spending Alert (Improved UI) */}
-            <View style={styles.alertCard}>
-                <View style={styles.alertLeft}>
-                    <Ionicons name="warning" size={24} color="#EA580C" />
-                </View>
-                <View style={styles.alertContent}>
-                    <Text style={styles.alertTitle}>Budget Alert</Text>
-                    <Text style={styles.alertText}>You've spent 78% of your Food budget</Text>
-                </View>
-            </View>
+  return (
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* HEADER */}
+        <View style={styles.header}>
+          <View>
+            <Text style={[styles.greetingText, { color: theme.subtext }]}>{greeting}</Text>
+            <Text style={[styles.nameText, { color: theme.text }]}>{userName} 👋</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={[styles.headerBtn, { backgroundColor: theme.card }]}>
+              <Ionicons name="notifications" size={20} color={theme.text} />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.headerBtn, { backgroundColor: theme.card }]}
+              onPress={() => router.push('/(tabs)/profile')}
+            >
+              <Ionicons name="person" size={20} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-            {/* 5. Recent Transactions Section (Integrated List) */}
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* BALANCE CARD */}
+          <BalanceCard 
+            balance={currentBalance}
+            income={totalIncome}
+            expense={totalExpense}
+            theme={theme}
+            isDarkMode={isDarkMode}
+          />
+
+          {/* WALLET GOALS */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Wallet Goals</Text>
+              <TouchableOpacity onPress={() => setShowAddGoalModal(true)}>
+                <Text style={[styles.seeAll, { color: theme.tint }]}>+ Add Goal</Text>
+              </TouchableOpacity>
+            </View>
+            {goals.length === 0 ? (
+              <TouchableOpacity 
+                style={[styles.emptyGoalState, { backgroundColor: theme.card }]}
+                onPress={() => setShowAddGoalModal(true)}
+              >
+                <Ionicons name="flag-outline" size={40} color={theme.subtext} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>No goals yet</Text>
+                <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
+                  Tap to create your first savings goal
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <GoalWidget goal={goals[0]} theme={theme} onAddContribution={handleAddContribution} />
+            )}
+          </View>
+
+          {/* BUDGET OVERVIEW */}
+          {budgets.length > 0 && (
             <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Recent Transactions</Text>
-                    {/* Link to the full transactions screen */}
-                    <TouchableOpacity onPress={() => router.push("/transactions")}> 
-                        <Text style={styles.seeAll}>See all</Text>
-                    </TouchableOpacity>
-                </View>
-                {transactionContent}
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>Budget Status</Text>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/budget')}>
+                  <Text style={[styles.seeAll, { color: theme.tint }]}>Manage</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.miniCardsScroll}
+              >
+                {budgets.slice(0, 4).map((budget, idx) => (
+                  <BudgetMiniCard key={budget.id} budget={budget} theme={theme} />
+                ))}
+              </ScrollView>
             </View>
+          )}
 
-            {/* 6. Add Transaction Button (New Feature) */}
-            <TouchableOpacity style={styles.addButton} onPress={() => router.push("/add-transaction")} activeOpacity={0.8}>
-                <Ionicons name="add" size={24} color="white" />
-                <Text style={styles.addButtonText}>Add Transaction</Text>
-            </TouchableOpacity>
+          {/* AI ASSISTANT BANNER */}
+          <TouchableOpacity 
+            onPress={() => router.push('/buddy-ai')}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#818CF8', '#C084FC'] as const}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.aiBanner, theme.shadow.medium]}
+            >
+              <View style={styles.aiIcon}>
+                <Ionicons name="sparkles" size={24} color="white" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiTitle}>Chat with Buddy AI</Text>
+                <Text style={styles.aiSubtitle}>Get personalized financial advice</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+            </LinearGradient>
+          </TouchableOpacity>
 
-            {/* 7. Logout Button (New Feature) */}
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-                <Text style={styles.logoutBtnText}>Sign Out</Text>
-            </TouchableOpacity>
+          {/* TRENDING TRANSACTIONS */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Activity</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/activity')}>
+                <Text style={[styles.seeAll, { color: theme.tint }]}>See All</Text>
+              </TouchableOpacity>
+            </View>
+            {transactions.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.card }]}>
+                <Ionicons name="wallet-outline" size={48} color={theme.subtext} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>No transactions yet</Text>
+                <Text style={[styles.emptySubtext, { color: theme.subtext }]}>
+                  Start tracking your finances
+                </Text>
+              </View>
+            ) : (
+              <View>
+                {transactions.slice(0, 5).map((tx, idx) => (
+                  <TrendingCard key={tx.id} transaction={tx} theme={theme} index={idx} />
+                ))}
+              </View>
+            )}
+          </View>
 
+          <View style={{ height: 120 }} />
         </ScrollView>
-    )
-}
+      </SafeAreaView>
 
-// --- CONSOLIDATED STYLES (Used the superior styles from the first block) ---
+      {/* CONTRIBUTION MODAL */}
+      <Modal
+        visible={showContributionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowContributionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Add Contribution</Text>
+            <Text style={[styles.modalSubtitle, { color: theme.subtext }]}>
+              {selectedGoal?.name}
+            </Text>
+            
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text }]}
+              placeholder="Enter amount"
+              placeholderTextColor={theme.subtext}
+              keyboardType="numeric"
+              value={contributionAmount}
+              onChangeText={setContributionAmount}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.border }]}
+                onPress={() => {
+                  setShowContributionModal(false);
+                  setContributionAmount('');
+                }}
+              >
+                <Text style={[styles.modalBtnText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.tint }]}
+                onPress={handleSubmitContribution}
+              >
+                <Text style={[styles.modalBtnText, { color: 'white' }]}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ADD GOAL MODAL */}
+      <Modal
+        visible={showAddGoalModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddGoalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>Create New Goal</Text>
+            
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, marginBottom: 12 }]}
+              placeholder="Goal name (e.g., Vacation Fund)"
+              placeholderTextColor={theme.subtext}
+              value={newGoalName}
+              onChangeText={setNewGoalName}
+            />
+            
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text }]}
+              placeholder="Target amount"
+              placeholderTextColor={theme.subtext}
+              keyboardType="numeric"
+              value={newGoalTarget}
+              onChangeText={setNewGoalTarget}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.border }]}
+                onPress={() => {
+                  setShowAddGoalModal(false);
+                  setNewGoalName('');
+                  setNewGoalTarget('');
+                }}
+              >
+                <Text style={[styles.modalBtnText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: theme.tint }]}
+                onPress={handleCreateGoal}
+              >
+                <Text style={[styles.modalBtnText, { color: 'white' }]}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#F0F9FF", // Lighter background
-        paddingHorizontal: 16,
-        paddingTop: 12,
-    },
-    // Header
-    header: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-        marginBottom: 24,
-    },
-    greeting: {
-        fontSize: 28,
-        fontWeight: "700",
-        color: "#0F172A",
-    },
-    subgreeting: {
-        fontSize: 14,
-        color: "#64748B",
-        marginTop: 4,
-    },
-    profileAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: "#DBEAFE",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    // Main Balance Card
-    balanceCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 20,
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    balanceLabel: {
-        fontSize: 13,
-        color: "#64748B",
-        fontWeight: "500",
-        marginBottom: 6,
-    },
-    balanceAmount: {
-        fontSize: 32,
-        fontWeight: "800",
-        color: "#0F172A",
-    },
-    balanceChange: {
-        fontSize: 12,
-        color: "#10B981",
-        marginTop: 4,
-        fontWeight: "500",
-    },
-    balanceIcon: {
-        opacity: 0.1,
-    },
-    // Stats Grid
-    statsGrid: {
-        flexDirection: "row",
-        gap: 10,
-        marginBottom: 20,
-    },
-    statCard: {
-        flex: 1,
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        padding: 14,
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    statIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 8,
-    },
-    statLabel: {
-        fontSize: 12,
-        color: "#64748B",
-        marginBottom: 4,
-    },
-    statValue: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: "#0F172A",
-    },
-    // Alert Card
-    alertCard: {
-        backgroundColor: "#FFFBEB",
-        borderRadius: 16,
-        padding: 14,
-        flexDirection: "row",
-        marginBottom: 24,
-        borderLeftWidth: 4,
-        borderLeftColor: "#EA580C", // Orange border for alert
-    },
-    alertLeft: {
-        marginRight: 12,
-    },
-    alertContent: {
-        flex: 1,
-    },
-    alertTitle: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#92400E",
-    },
-    alertText: {
-        fontSize: 12,
-        color: "#B45309",
-        marginTop: 2,
-    },
-    // Sections & Headers
-    section: {
-        marginBottom: 20,
-    },
-    sectionHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 12,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: "700",
-        color: "#0F172A",
-    },
-    seeAll: {
-        fontSize: 13,
-        color: "#0EA5E9",
-        fontWeight: "600",
-    },
-    // Transactions List
-    transactionsList: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    transactionRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: "#F1F5F9",
-    },
-    transactionLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-    },
-    categoryIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        justifyContent: "center",
-        alignItems: "center",
-        marginRight: 12,
-    },
-    transactionName: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: "#0F172A",
-    },
-    transactionMeta: {
-        fontSize: 12,
-        color: "#94A3B8",
-        marginTop: 2,
-    },
-    transactionAmount: {
-        fontSize: 14,
-        fontWeight: "700",
-    },
-    loadingContainer: {
-        paddingVertical: 20,
-        alignItems: "center",
-    },
-    // Buttons
-    addButton: {
-        backgroundColor: "#0EA5E9",
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        borderRadius: 14,
-        padding: 14,
-        marginBottom: 32,
-        gap: 8,
-        shadowColor: "#0EA5E9",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
-    },
-    addButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "700",
-    },
-    logoutBtn: {
-        backgroundColor: "#EF4444",
-        padding: 14,
-        borderRadius: 10,
-        alignItems: "center",
-        marginBottom: 32,
-    },
-    logoutBtnText: {
-        color: "white",
-        fontSize: 16,
-        fontWeight: "700",
-    },
-    // Clean up old styles that were not used/merged
-    greenText: { color: "#10B981" },
-    redText: { color: "#EF4444" },
+  container: { flex: 1 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    marginBottom: 20,
+  },
+  greetingText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  nameText: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  
+  // Balance Card
+  balanceCard: {
+    borderRadius: 32,
+    padding: 24,
+    marginBottom: 25,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    top: -50,
+    right: -50,
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    bottom: -30,
+    left: -30,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  balanceLabel: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  accountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  accountText: {
+    color: '#FFD700',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  eyeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  balanceAmount: {
+    color: '#FFFFFF',
+    fontSize: 44,
+    fontWeight: '900',
+    letterSpacing: -2,
+    marginBottom: 8,
+  },
+  balanceChange: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    marginTop: 24,
+    marginBottom: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  statItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statIconWrapper: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginHorizontal: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  quickActionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  // Section
+  section: {
+    marginBottom: 25,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  seeAll: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  // Goal Widget
+  goalCard: {
+    borderRadius: 24,
+    padding: 20,
+  },
+  goalContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  goalIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  goalSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  goalProgress: {
+    width: width - 180,
+  },
+  goalBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  goalBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  goalCircle: {
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goalPercentage: {
+    position: 'absolute',
+  },
+  goalPercentText: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  // Mini Budget Cards
+  miniCardsScroll: {
+    gap: 12,
+    paddingRight: 20,
+  },
+  miniCard: {
+    width: 120,
+    padding: 16,
+    borderRadius: 20,
+  },
+  miniIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  miniLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  miniAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  miniProgress: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  miniProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
+  // AI Banner
+  aiBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 25,
+    gap: 16,
+  },
+  aiIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  aiSubtitle: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Trending Cards
+  trendCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  trendIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendDesc: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  trendCat: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  trendAmount: {
+    fontSize: 16,
+    fontWeight: '900',
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+    borderRadius: 24,
+  },
+  emptyGoalState: {
+    alignItems: 'center',
+    padding: 30,
+    borderRadius: 24,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: width - 80,
+    borderRadius: 24,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  modalInput: {
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
 });

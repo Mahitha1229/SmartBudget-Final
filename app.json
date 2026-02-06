@@ -14,6 +14,10 @@
     },
     "android": {
       "package": "com.smartbudget.tracker",
+      "permissions": [
+        "READ_SMS",
+        "RECEIVE_SMS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -46,6 +50,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "75634582-b368-4c9e-aaf3-5f856f198fff"
+      }
     }
   }
 }

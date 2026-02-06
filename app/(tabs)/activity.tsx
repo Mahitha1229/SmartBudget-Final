@@ -1,4 +1,4 @@
-// SmartBudget/app/(tabs)/activity-premium.tsx
+// SmartBudget/app/(tabs)/activity-premium.tsx - FIXED CATEGORY SYSTEM
 import React, { useEffect, useState, useMemo } from "react";
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity, TextInput, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,22 +13,14 @@ import { useTransactionStore, useTransactionData, Transaction } from '../_lib/us
 import { useAuthStore } from '../_lib/useAuthStore'; 
 import { useThemeStore } from '../_lib/useThemeStore';
 import { Colors } from '../../constants/theme';
-import { CATEGORIES } from '../../constants/category';
+import { CATEGORIES, getCategoryInfo } from '../../constants/category';
+import { getCategoryIcon, getCategoryColor } from '../_lib/autoCategorize';
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,
   primaryDark: ['#4F46E5', '#7C3AED', '#C084FC'] as const,
   success: ['#10B981', '#059669'] as const,
   danger: ['#EF4444', '#DC2626'] as const,
-};
-
-const CATEGORY_MAP: { [key: string]: { icon: keyof typeof Ionicons.glyphMap, gradient: readonly [string, string] } } = {
-  'Food': { icon: 'restaurant', gradient: ['#F59E0B', '#EF4444'] as const },
-  'Travel': { icon: 'airplane', gradient: ['#0EA5E9', '#8B5CF6'] as const },
-  'Bills': { icon: 'receipt', gradient: ['#8B5CF6', '#6366F1'] as const },
-  'Shopping': { icon: 'cart', gradient: ['#EC4899', '#F97316'] as const },
-  'Entertainment': { icon: 'game-controller', gradient: ['#EF4444', '#EC4899'] as const },
-  'Other': { icon: 'ellipse', gradient: ['#64748B', '#475569'] as const },
 };
 
 // 💳 PREMIUM TRANSACTION CARD
@@ -43,7 +35,10 @@ const PremiumTransactionCard = ({
   onLongPress
 }: any) => {
   const isIncome = transaction.type === 'credit';
-  const catBase = CATEGORY_MAP[transaction.category] || CATEGORY_MAP['Other'];
+  
+  // Use the centralized category system - THIS IS THE FIX!
+  const icon = getCategoryIcon(transaction.category);
+  const color = getCategoryColor(transaction.category);
   
   const formattedDate = new Date(transaction.date).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -97,10 +92,10 @@ const PremiumTransactionCard = ({
       )}
 
       <LinearGradient
-        colors={catBase.gradient}
+        colors={[color, color] as const}
         style={styles.transactionIcon}
       >
-        <Ionicons name={catBase.icon} size={22} color="white" />
+        <Ionicons name={icon} size={22} color="white" />
       </LinearGradient>
 
       <View style={styles.transactionDetails}>
@@ -108,8 +103,8 @@ const PremiumTransactionCard = ({
           {transaction.description}
         </Text>
         <View style={styles.transactionMeta}>
-          <View style={[styles.categoryBadge, { backgroundColor: theme.border + '40' }]}>
-            <Text style={[styles.categoryBadgeText, { color: theme.subtext }]}>
+          <View style={[styles.categoryBadge, { backgroundColor: color + '20' }]}>
+            <Text style={[styles.categoryBadgeText, { color: color }]}>
               {transaction.category}
             </Text>
           </View>

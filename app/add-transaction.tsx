@@ -1,5 +1,4 @@
-// SmartBudget/app/add-transaction-premium.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     View, 
     Text, 
@@ -20,12 +19,14 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 
+// --- STORES & LIBS ---
 import { useTransactionStore } from './_lib/useTransactionStore'; 
 import { useAuthStore } from './_lib/useAuthStore';
 import { useThemeStore } from './_lib/useThemeStore';
 import { useBudgetStore } from './_lib/useBudgetStore';
 import { Colors } from '../constants/theme';
 import { CATEGORIES, getDescriptionSuggestions } from '../constants/category';
+import { getCategoryIcon, getCategoryColor } from './_lib/autoCategorize';
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,
@@ -51,13 +52,30 @@ export default function PremiumAddTransactionScreen() {
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const availableCategories = CATEGORIES;
+  // --- DYNAMIC CATEGORY MERGING ---
+  // This merges your default categories with the new ones you added in the Budget screen
+  const availableCategories = useMemo(() => {
+    const budgetBasedCategories = budgets.map(b => ({
+      name: b.category,
+      icon: getCategoryIcon(b.category),
+      color: getCategoryColor(b.category)
+    }));
+
+    const combined = [...CATEGORIES, ...budgetBasedCategories];
+
+    // Remove duplicates if a budget name matches a static category name
+    const uniqueCategories = Array.from(
+      new Map(combined.map(item => [item.name, item])).values()
+    );
+
+    return uniqueCategories;
+  }, [budgets]);
 
   useEffect(() => {
     if (!category && availableCategories.length > 0) {
       setCategory(availableCategories[0].name);
     }
-  }, []);
+  }, [availableCategories]);
 
   const saveToStore = useTransactionStore(state => state.addTransaction);
 
@@ -140,16 +158,9 @@ export default function PremiumAddTransactionScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* AMOUNT CARD */}
-          <MotiView
-            from={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', damping: 15 }}
-          >
+          <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
             <LinearGradient
-              colors={type === 'debit' 
-                ? ['#FEE2E2', '#FEF2F2'] as const
-                : ['#D1FAE5', '#ECFDF5'] as const
-              }
+              colors={type === 'debit' ? ['#FEE2E2', '#FEF2F2'] : ['#D1FAE5', '#ECFDF5']}
               style={styles.amountCard}
             >
               <View style={styles.amountRow}>
@@ -164,215 +175,106 @@ export default function PremiumAddTransactionScreen() {
                   autoFocus
                   value={amount}
                   onChangeText={setAmount}
-                  selectionColor={theme.tint}
                 />
               </View>
             </LinearGradient>
           </MotiView>
 
           {/* QUICK AMOUNTS */}
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', delay: 100 }}
-            style={styles.quickAmountsRow}
-          >
-            {QUICK_AMOUNTS.map((amt, idx) => (
+          <View style={styles.quickAmountsRow}>
+            {QUICK_AMOUNTS.map((amt) => (
               <TouchableOpacity
                 key={amt}
                 onPress={() => handleQuickAmount(amt)}
                 style={[
                   styles.quickAmountBtn,
-                  { 
-                    backgroundColor: amount === amt.toString() ? theme.tint : theme.card,
-                    borderWidth: 1,
-                    borderColor: amount === amt.toString() ? theme.tint : theme.border
-                  }
+                  { backgroundColor: amount === amt.toString() ? theme.tint : theme.card, borderColor: theme.border, borderWidth: 1 }
                 ]}
               >
-                <Text style={[
-                  styles.quickAmountText,
-                  { color: amount === amt.toString() ? 'white' : theme.text }
-                ]}>
-                  ₹{amt}
-                </Text>
+                <Text style={[styles.quickAmountText, { color: amount === amt.toString() ? 'white' : theme.text }]}>₹{amt}</Text>
               </TouchableOpacity>
             ))}
-          </MotiView>
+          </View>
 
           {/* TYPE TOGGLE */}
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', delay: 150 }}
-            style={[styles.toggleWrapper, { backgroundColor: theme.card }]}
-          >
+          <View style={[styles.toggleWrapper, { backgroundColor: theme.card }]}>
             <TouchableOpacity 
               onPress={() => { setType('debit'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
               style={[styles.toggleOption, type === 'debit' && styles.debitActive]}
             >
-              <Ionicons 
-                name="arrow-up-circle" 
-                size={18} 
-                color={type === 'debit' ? 'white' : theme.subtext} 
-              />
-              <Text style={[styles.toggleLabel, { color: type === 'debit' ? 'white' : theme.subtext }]}>
-                Expense
-              </Text>
+              <Text style={[styles.toggleLabel, { color: type === 'debit' ? 'white' : theme.subtext }]}>Expense</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => { setType('credit'); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
               style={[styles.toggleOption, type === 'credit' && styles.creditActive]}
             >
-              <Ionicons 
-                name="arrow-down-circle" 
-                size={18} 
-                color={type === 'credit' ? 'white' : theme.subtext} 
-              />
-              <Text style={[styles.toggleLabel, { color: type === 'credit' ? 'white' : theme.subtext }]}>
-                Income
-              </Text>
+              <Text style={[styles.toggleLabel, { color: type === 'credit' ? 'white' : theme.subtext }]}>Income</Text>
             </TouchableOpacity>
-          </MotiView>
+          </View>
 
           {/* CATEGORY SELECTION */}
           {type === 'debit' && (
-            <MotiView
-              from={{ opacity: 0, translateY: 10 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ type: 'timing', delay: 200 }}
-              style={styles.section}
-            >
+            <View style={styles.section}>
               <View style={styles.sectionHeaderRow}>
-                <Text style={[styles.sectionHeader, { color: theme.subtext }]}>
-                  Select Category
-                </Text>
+                <Text style={[styles.sectionHeader, { color: theme.subtext }]}>Select Category</Text>
                 {hasBudget && currentBudget && (
                   <View style={[styles.budgetBadge, { backgroundColor: theme.tint + '20' }]}>
-                    <Ionicons name="wallet" size={12} color={theme.tint} />
                     <Text style={[styles.budgetBadgeText, { color: theme.tint }]}>
-                      ₹{Math.round(currentBudget.limit - currentBudget.spent)}/{currentBudget.limit} left
+                      ₹{Math.round(currentBudget.limit - currentBudget.spent)} left
                     </Text>
                   </View>
                 )}
               </View>
               
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryScroll}
-              >
-                {availableCategories.map((cat, idx) => {
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                {availableCategories.map((cat) => {
                   const isSelected = category === cat.name;
                   const catHasBudget = budgets.some(b => b.category === cat.name);
                   
                   return (
-                    <MotiView
+                    <TouchableOpacity
                       key={cat.name}
-                      from={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: 'spring', delay: 250 + (idx * 50), damping: 15 }}
+                      onPress={() => { setCategory(cat.name); setDescription(''); setShowSuggestions(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                      style={[
+                        styles.categoryChip,
+                        isSelected ? { backgroundColor: cat.color, borderColor: cat.color } : { backgroundColor: theme.card, borderColor: theme.border }
+                      ]}
                     >
-                      <TouchableOpacity
-                        onPress={() => { 
-                          setCategory(cat.name); 
-                          setDescription('');
-                          setShowSuggestions(true);
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); 
-                        }}
-                        style={[
-                          styles.categoryChip,
-                          isSelected 
-                            ? { backgroundColor: cat.color, borderColor: cat.color } 
-                            : { backgroundColor: theme.card, borderColor: theme.border }
-                        ]}
-                      >
-                        {catHasBudget && (
-                          <View style={[styles.budgetDot, { backgroundColor: '#10B981' }]} />
-                        )}
-                        <Ionicons 
-                          name={cat.icon} 
-                          size={20} 
-                          color={isSelected ? 'white' : cat.color} 
-                        />
-                        <Text style={[
-                          styles.categoryChipText, 
-                          { color: isSelected ? 'white' : theme.text }
-                        ]}>
-                          {cat.name}
-                        </Text>
-                      </TouchableOpacity>
-                    </MotiView>
+                      {catHasBudget && <View style={[styles.budgetDot, { backgroundColor: '#10B981' }]} />}
+                      <Ionicons name={cat.icon as any} size={20} color={isSelected ? 'white' : cat.color} />
+                      <Text style={[styles.categoryChipText, { color: isSelected ? 'white' : theme.text }]}>{cat.name}</Text>
+                    </TouchableOpacity>
                   );
                 })}
               </ScrollView>
-              
-              {/* BUDGET WARNING */}
+
+              {/* BUDGET WARNING (Calculates if this specific transaction breaks the budget) */}
               {currentBudget && amount && parseFloat(amount) > 0 && (
-                <MotiView
-                  from={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  style={[
-                    styles.budgetWarning,
-                    { 
-                      backgroundColor: currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                        ? '#FEE2E2' 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
-                        ? '#FEF3C7'
-                        : '#DCFCE7'
-                    }
-                  ]}
-                >
+                <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} style={[
+                  styles.budgetWarning,
+                  { backgroundColor: currentBudget.spent + parseFloat(amount) > currentBudget.limit ? '#FEE2E2' : '#DCFCE7' }
+                ]}>
                   <Ionicons 
-                    name={
-                      currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                        ? "warning" 
-                        : "information-circle"
-                    } 
+                    name={currentBudget.spent + parseFloat(amount) > currentBudget.limit ? "warning" : "checkmark-circle"} 
                     size={16} 
-                    color={
-                      currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                        ? "#EF4444" 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
-                        ? "#F59E0B"
-                        : "#10B981"
-                    } 
+                    color={currentBudget.spent + parseFloat(amount) > currentBudget.limit ? "#EF4444" : "#10B981"} 
                   />
-                  <Text style={[
-                    styles.budgetWarningText,
-                    { 
-                      color: currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                        ? "#EF4444" 
-                        : currentBudget.spent + parseFloat(amount) > currentBudget.limit * 0.8
-                        ? "#F59E0B"
-                        : "#10B981"
-                    }
-                  ]}>
+                  <Text style={[styles.budgetWarningText, { color: currentBudget.spent + parseFloat(amount) > currentBudget.limit ? "#EF4444" : "#10B981" }]}>
                     {currentBudget.spent + parseFloat(amount) > currentBudget.limit 
-                      ? `Will exceed ${category} budget by ₹${Math.round(currentBudget.spent + parseFloat(amount) - currentBudget.limit)}`
-                      : `Within budget (₹${Math.round(currentBudget.limit - (currentBudget.spent + parseFloat(amount)))} remaining)`
-                    }
+                      ? `Exceeds budget by ₹${Math.round(currentBudget.spent + parseFloat(amount) - currentBudget.limit)}`
+                      : `Within ${category} budget`}
                   </Text>
                 </MotiView>
               )}
-            </MotiView>
+            </View>
           )}
 
           {/* DESCRIPTION & DATE */}
-          <MotiView
-            from={{ opacity: 0, translateY: 10 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'timing', delay: 300 }}
-            style={styles.section}
-          >
+          <View style={styles.section}>
             <Text style={[styles.sectionHeader, { color: theme.subtext }]}>Details</Text>
-            
             <View style={[styles.formCard, { backgroundColor: theme.card }]}>
               <View style={styles.inputRow}>
-                <LinearGradient
-                  colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary}
-                  style={styles.inputIconCircle}
-                >
+                <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={styles.inputIconCircle}>
                   <Ionicons name="pencil" size={18} color="white" />
                 </LinearGradient>
                 <TextInput
@@ -383,98 +285,46 @@ export default function PremiumAddTransactionScreen() {
                   onChangeText={setDescription}
                   onFocus={() => setShowSuggestions(true)}
                 />
-                {currentSuggestions.length > 0 && (
-                  <TouchableOpacity 
-                    onPress={() => setShowSuggestions(!showSuggestions)}
-                    style={styles.suggestionToggle}
-                  >
-                    <Ionicons 
-                      name={showSuggestions ? "chevron-up" : "chevron-down"} 
-                      size={16} 
-                      color={theme.subtext} 
-                    />
-                  </TouchableOpacity>
-                )}
               </View>
               
               {showSuggestions && currentSuggestions.length > 0 && type === 'debit' && (
-                <>
-                  <View style={[styles.separator, { backgroundColor: theme.border }]} />
-                  <View style={styles.suggestionsContainer}>
-                    <Text style={[styles.suggestionsLabel, { color: theme.subtext }]}>
-                      Quick Suggestions
-                    </Text>
-                    <View style={styles.suggestionsGrid}>
-                      {currentSuggestions.map((suggestion) => (
-                        <TouchableOpacity
-                          key={suggestion}
-                          onPress={() => handleSuggestionSelect(suggestion)}
-                          style={[
-                            styles.suggestionChip,
-                            { 
-                              backgroundColor: theme.background,
-                              borderColor: theme.border
-                            }
-                          ]}
-                        >
-                          <Text style={[styles.suggestionText, { color: theme.text }]}>
-                            {suggestion}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
+                <View style={styles.suggestionsContainer}>
+                  <View style={styles.suggestionsGrid}>
+                    {currentSuggestions.map((s) => (
+                      <TouchableOpacity key={s} onPress={() => handleSuggestionSelect(s)} style={[styles.suggestionChip, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                        <Text style={[styles.suggestionText, { color: theme.text }]}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                </>
+                </View>
               )}
               
               <View style={[styles.separator, { backgroundColor: theme.border }]} />
               
               <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.inputRow}>
-                <LinearGradient
-                  colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary}
-                  style={styles.inputIconCircle}
-                >
+                <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={styles.inputIconCircle}>
                   <Ionicons name="calendar" size={18} color="white" />
                 </LinearGradient>
                 <Text style={[styles.descInput, { color: theme.text }]}>
                   {date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' })}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={theme.subtext} />
               </TouchableOpacity>
             </View>
-          </MotiView>
+          </View>
         </ScrollView>
 
-        {/* SUBMIT BUTTON */}
+        {/* FOOTER */}
         <View style={[styles.footer, { backgroundColor: theme.background }]}>
-          <TouchableOpacity 
-            onPress={handleSave}
-            disabled={loading || !amount}
-            style={{ borderRadius: 20, overflow: 'hidden' }}
-          >
-            <LinearGradient
-              colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary}
-              style={[
-                styles.saveButton, 
-                { opacity: (!amount || loading) ? 0.5 : 1 }
-              ]}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle" size={24} color="white" />
-                  <Text style={styles.saveButtonText}>Add Transaction</Text>
-                </>
-              )}
+          <TouchableOpacity onPress={handleSave} disabled={loading || !amount} style={{ borderRadius: 20, overflow: 'hidden' }}>
+            <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={[styles.saveButton, { opacity: (!amount || loading) ? 0.5 : 1 }]}>
+              {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Add Transaction</Text>}
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {showDatePicker && (
           <DateTimePicker 
-            value={date} 
-            mode="date" 
+            value={date} mode="date" 
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={(e, d) => { setShowDatePicker(false); if(d) setDate(d); }} 
           />
@@ -486,165 +336,42 @@ export default function PremiumAddTransactionScreen() {
 
 const styles = StyleSheet.create({
   navBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
-  backCircle: { 
-    width: 44, 
-    height: 44, 
-    borderRadius: 22, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  navTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  backCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  navTitle: { fontSize: 20, fontWeight: '900' },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  
-  amountCard: { 
-    borderRadius: 28, 
-    padding: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
+  amountCard: { borderRadius: 28, padding: 24, marginBottom: 16 },
   amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   currencyLabel: { fontSize: 36, fontWeight: '900', marginRight: 8 },
   mainInput: { fontSize: 56, fontWeight: '900', textAlign: 'center', minWidth: 100 },
-
   quickAmountsRow: { flexDirection: 'row', gap: 8, marginBottom: 20, flexWrap: 'wrap' },
-  quickAmountBtn: { 
-    paddingHorizontal: 18, 
-    paddingVertical: 10, 
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+  quickAmountBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 16 },
   quickAmountText: { fontSize: 14, fontWeight: '800' },
-
-  toggleWrapper: { 
-    flexDirection: 'row', 
-    padding: 6, 
-    borderRadius: 20, 
-    marginBottom: 25,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  toggleOption: { 
-    flex: 1, 
-    paddingVertical: 14, 
-    borderRadius: 16, 
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8
-  },
+  toggleWrapper: { flexDirection: 'row', padding: 6, borderRadius: 20, marginBottom: 25 },
+  toggleOption: { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
   toggleLabel: { fontWeight: '800', fontSize: 15 },
-  debitActive: { backgroundColor: '#EF4444', elevation: 2 },
-  creditActive: { backgroundColor: '#10B981', elevation: 2 },
-
+  debitActive: { backgroundColor: '#EF4444' },
+  creditActive: { backgroundColor: '#10B981' },
   section: { marginBottom: 25 },
-  sectionHeader: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12, marginLeft: 4 },
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginLeft: 4 },
-  budgetBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  sectionHeader: { fontSize: 13, fontWeight: '800', textTransform: 'uppercase', marginBottom: 12, marginLeft: 4 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  budgetBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   budgetBadgeText: { fontSize: 11, fontWeight: '800' },
-  
-  categoryScroll: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
-  categoryChip: { 
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 2,
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
+  categoryScroll: { flexDirection: 'row', gap: 10 },
+  categoryChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, borderWidth: 2, position: 'relative' },
   categoryChipText: { fontSize: 13, fontWeight: '700' },
-  budgetDot: { 
-    position: 'absolute', 
-    top: 6, 
-    right: 6, 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4
-  },
-  
-  budgetWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    marginTop: 12
-  },
-  budgetWarningText: { fontSize: 12, fontWeight: '700', flex: 1 },
-
-  formCard: { 
-    borderRadius: 24, 
-    paddingHorizontal: 20, 
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
+  budgetDot: { position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 4 },
+  budgetWarning: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 12, marginTop: 12 },
+  budgetWarningText: { fontSize: 12, fontWeight: '700' },
+  formCard: { borderRadius: 24, paddingHorizontal: 20, paddingVertical: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 14 },
-  inputIconCircle: { 
-    width: 36, 
-    height: 36, 
-    borderRadius: 12, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  inputIconCircle: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   descInput: { fontSize: 16, fontWeight: '700', flex: 1 },
   separator: { height: 1, width: '100%' },
-  suggestionToggle: { padding: 8 },
-
   suggestionsContainer: { paddingVertical: 12 },
-  suggestionsLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginBottom: 8 },
   suggestionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  suggestionChip: { 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
-    borderRadius: 12, 
-    borderWidth: 1 
-  },
+  suggestionChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   suggestionText: { fontSize: 12, fontWeight: '600' },
-
-  footer: { padding: 20, borderTopWidth: 0 },
-  saveButton: { 
-    height: 64, 
-    borderRadius: 20, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 10,
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-  },
+  footer: { padding: 20 },
+  saveButton: { height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   saveButtonText: { color: 'white', fontSize: 18, fontWeight: '900' }
 });

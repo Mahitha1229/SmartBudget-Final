@@ -55,6 +55,7 @@ export const Colors = {
     },
     
     tint: '#6366F1',
+    icon: '#64748B',
   },
   
   dark: {

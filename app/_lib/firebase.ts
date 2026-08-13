@@ -32,7 +32,7 @@ export const auth: Auth = (() => {
       return initializeAuth(app, {
         persistence: getReactNativePersistence(ReactNativeAsyncStorage),
       });
-    } catch (e) {
+    } catch {
       return getAuth(app); 
     }
   }

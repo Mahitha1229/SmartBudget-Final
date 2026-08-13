@@ -216,7 +216,6 @@ export const generateBuddyResponse = (
   const expenses = filteredTransactions.filter(t => t.type === 'debit' || t.amount < 0);
   const income = filteredTransactions.filter(t => t.type === 'credit' || t.amount > 0);
   const totalExpenses = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-  const totalIncome = income.reduce((sum, t) => sum + Math.abs(t.amount), 0);
   
   const patterns = analyzeSpendingPatterns(filteredTransactions);
   const insights = generateProactiveInsights(transactions, currentBalance);

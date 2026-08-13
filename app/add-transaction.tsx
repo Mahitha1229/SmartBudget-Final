@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    Alert, 
-    ActivityIndicator, 
-    TouchableOpacity, 
-    Platform,
-    ScrollView, 
-    StyleSheet, 
-    KeyboardAvoidingView
-} from 'react-native';
-import { router } from 'expo-router'; 
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context'; 
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { MotiView } from 'moti';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // --- STORES & LIBS ---
-import { useTransactionStore } from './_lib/useTransactionStore'; 
-import { useAuthStore } from './_lib/useAuthStore';
-import { useThemeStore } from './_lib/useThemeStore';
-import { useBudgetStore } from './_lib/useBudgetStore';
-import { Colors } from '../constants/theme';
 import { CATEGORIES, getDescriptionSuggestions } from '../constants/category';
-import { getCategoryIcon, getCategoryColor } from './_lib/autoCategorize';
+import { Colors } from '../constants/theme';
+import { getCategoryColor, getCategoryIcon } from './_lib/autoCategorize';
+import { useAuthStore } from './_lib/useAuthStore';
+import { useBudgetStore } from './_lib/useBudgetStore';
+import { useThemeStore } from './_lib/useThemeStore';
+import { useTransactionStore } from './_lib/useTransactionStore';
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,
@@ -375,3 +375,45 @@ const styles = StyleSheet.create({
   saveButton: { height: 64, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   saveButtonText: { color: 'white', fontSize: 18, fontWeight: '900' }
 });
+
+// Add to constants/autoCategorize.ts (or _lib/autoCategorize.ts)
+
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  Food: [
+    'biriyani', 'biryani', 'pizza', 'domino', "domino's", 'dominos',
+    'burger', 'mcdonald', 'kfc', 'subway', 'swiggy', 'zomato',
+    'restaurant', 'cafe', 'coffee', 'chai', 'tea', 'dosa', 'idli',
+    'samosa', 'lunch', 'dinner', 'breakfast', 'starbucks', 'bakery',
+    'sweets', 'snacks', 'zaika', 'thali', 'canteen', 'mess', 'food',
+  ],
+  Travel: [
+    'uber', 'ola', 'rapido', 'petrol', 'diesel', 'fuel', 'auto',
+    'train', 'irctc', 'flight', 'indigo', 'spicejet', 'bus', 'cab',
+    'metro', 'taxi', 'parking', 'toll', 'ticket',
+  ],
+  Shopping: [
+    'amazon', 'flipkart', 'myntra', 'ajio', 'meesho', 'mall',
+    'clothes', 'shoes', 'shopping', 'nykaa', 'store',
+  ],
+  Bills: [
+    'electricity', 'wifi', 'broadband', 'recharge', 'rent', 'emi',
+    'insurance', 'jio', 'airtel', 'vi', 'gas', 'water bill',
+    'maintenance', 'subscription',
+  ],
+  Entertainment: [
+    'netflix', 'spotify', 'prime', 'hotstar', 'movie', 'bookmyshow',
+    'pvr', 'inox', 'game', 'gaming', 'concert', 'youtube premium',
+  ],
+};
+
+export function detectCategoryFromText(text: string): string | null {
+  if (!text || text.trim().length < 2) return null;
+  const lower = text.toLowerCase().trim();
+
+  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+    if (keywords.some(keyword => lower.includes(keyword))) {
+      return category;
+    }
+  }
+  return null;
+}

@@ -1,8 +1,8 @@
 // SmartBudget/app/_lib/autoCategorize.ts
 // 🎯 CENTRALIZED AUTO-CATEGORIZATION SERVICE
 
-import { CATEGORIES, CATEGORY_MAP } from '../../constants/category';
 import { Ionicons } from '@expo/vector-icons';
+import { CATEGORIES, CATEGORY_MAP } from '../../constants/category';
 
 /**
  * Auto-categorizes transactions based on description keywords
@@ -12,11 +12,18 @@ export const categorizeTransaction = (description: string): string => {
   const desc = description.toLowerCase();
   
   // Food & Dining keywords
+  // Food & Dining keywords
   if (desc.includes('restaurant') || desc.includes('food') || desc.includes('cafe') || 
       desc.includes('coffee') || desc.includes('starbucks') || desc.includes('mcdonald') ||
       desc.includes('pizza') || desc.includes('burger') || desc.includes('zomato') ||
       desc.includes('swiggy') || desc.includes('ubereats') || desc.includes('dining') ||
-      desc.includes('lunch') || desc.includes('dinner') || desc.includes('breakfast')) {
+      desc.includes('lunch') || desc.includes('dinner') || desc.includes('breakfast') ||
+      desc.includes('biriyani') || desc.includes('biryani') || desc.includes('domino') ||
+      desc.includes('dosa') || desc.includes('idli') || desc.includes('samosa') ||
+      desc.includes('chai') || desc.includes('tea') || desc.includes('bakery') ||
+      desc.includes('sweets') || desc.includes('snacks') || desc.includes('thali') ||
+      desc.includes('canteen') || desc.includes('mess') || desc.includes('kfc') ||
+      desc.includes('subway') || desc.includes('dhaba')) {
     return 'Food & Dining';
   }
   

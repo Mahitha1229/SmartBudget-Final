@@ -8,6 +8,7 @@ let ExpoSmsReader: any = null;
 
 try {
   if (Platform.OS === 'android') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- native module must be conditionally required, not statically imported
     ExpoSmsReader = require('../../modules/expo-sms-reader').default;
     
     // Double-check if it's actually available
@@ -24,7 +25,7 @@ try {
       ExpoSmsReader = null;
     }
   }
-} catch (error) {
+} catch {
   console.log('📱 Custom SMS module not available, will use demo mode');
 }
 

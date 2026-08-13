@@ -1,5 +1,4 @@
 // src/services/smsParserService.ts
-import { Timestamp } from 'firebase/firestore';
 
 export interface ParsedTransaction {
   amount: number;

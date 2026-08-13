@@ -1,106 +1,145 @@
 // SmartBudget/app/(tabs)/index.tsx
-import React, { useMemo, useEffect, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Alert, TextInput, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from "expo-router";
 import { MotiView } from 'moti';
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Dimensions, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from 'react-native-svg';
 
-import { useAuthStore } from '../_lib/useAuthStore'; 
-import { useTransactionData, useTransactionStore } from '../_lib/useTransactionStore';
-import { useThemeStore } from '../_lib/useThemeStore';
 import { Colors } from '../../constants/theme';
+import { useAuthStore } from '../_lib/useAuthStore';
 import { useBudgetStore } from '../_lib/useBudgetStore';
 import { useGoalsStore } from '../_lib/useGoalsStore';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { useTransactionData, useTransactionStore } from '../_lib/useTransactionStore';
 
 const { width } = Dimensions.get('window');
 
 // ✨ BALANCE CARD WITH GLASSMORPHISM
-const BalanceCard = ({ balance, income, expense, theme, isDarkMode }: any) => (
-  <MotiView
-    from={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ type: 'spring', damping: 18 }}
-  >
-    <LinearGradient 
-      colors={theme.primaryGradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.balanceCard, theme.shadow.large]}
+const BalanceCard = ({ balance, income, expense, theme, isDarkMode }: any) => {
+  const [hideBalance, setHideBalance] = useState(false);
+  const netChange = income - expense;
+  const netLabel = netChange >= 0 ? 'Net saved this month' : 'Net overspend this month';
+
+  return (
+    <MotiView
+      from={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', damping: 18 }}
     >
-      {/* Decorative circles */}
-      <View style={styles.decorativeCircle1} />
-      <View style={styles.decorativeCircle2} />
-      
-      <View style={styles.balanceHeader}>
-        <View>
-          <Text style={styles.balanceLabel}>Total Balance</Text>
-          <TouchableOpacity style={styles.accountBadge}>
-            <Ionicons name="diamond" size={12} color="#FFD700" />
-            <Text style={styles.accountText}>Standard</Text>
+      <LinearGradient 
+        colors={theme.primaryGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.balanceCard, theme.shadow.large]}
+      >
+        <View style={styles.decorativeCircle1} />
+        <View style={styles.decorativeCircle2} />
+        
+        <View style={styles.balanceHeader}>
+          <View>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <TouchableOpacity style={styles.accountBadge}>
+              <Ionicons name="diamond" size={12} color="#FFD700" />
+              <Text style={styles.accountText}>Standard</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity 
+            style={styles.eyeButton} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setHideBalance(prev => !prev);
+            }}
+          >
+            <Ionicons name={hideBalance ? "eye-off" : "eye"} size={20} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.eyeButton}>
-          <Ionicons name="eye" size={20} color="rgba(255,255,255,0.9)" />
-        </TouchableOpacity>
-      </View>
 
-      <MotiView
-        from={{ opacity: 0, translateY: 20 }}
-        animate={{ opacity: 1, translateY: 0 }}
-        transition={{ delay: 200 }}
-      >
-        <Text style={styles.balanceAmount}>₹{balance.toLocaleString('en-IN')}</Text>
-        <Text style={styles.balanceChange}>
-          <Ionicons name="trending-up" size={12} color="#10B981" /> 
-          {' +2.5% from last month'}
-        </Text>
-      </MotiView>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ delay: 200 }}
+        >
+          <Text style={styles.balanceAmount}>
+            {hideBalance ? '₹ • • • • • •' : `₹${balance.toLocaleString('en-IN')}`}
+          </Text>
+          <Text style={styles.balanceChange}>
+            <Ionicons 
+              name={netChange >= 0 ? "trending-up" : "trending-down"} 
+              size={12} 
+              color={netChange >= 0 ? "#10B981" : "#FCA5A5"} 
+            /> 
+            {' '}{netLabel}: {hideBalance ? '••••' : `₹${Math.abs(netChange).toLocaleString('en-IN')}`}
+          </Text>
+        </MotiView>
 
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <View style={styles.statIconWrapper}>
-            <Ionicons name="arrow-down-circle" size={16} color="#10B981" />
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <View style={styles.statIconWrapper}>
+              <Ionicons name="arrow-down-circle" size={16} color="#10B981" />
+            </View>
+            <View>
+              <Text style={styles.statLabel}>Income</Text>
+              <Text style={styles.statValue}>
+                {hideBalance ? '••••' : `₹${income.toLocaleString('en-IN')}`}
+              </Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.statLabel}>Income</Text>
-            <Text style={styles.statValue}>₹{income.toLocaleString('en-IN')}</Text>
+          
+          <View style={styles.statDivider} />
+          
+          <View style={styles.statItem}>
+            <View style={styles.statIconWrapper}>
+              <Ionicons name="arrow-up-circle" size={16} color="#EF4444" />
+            </View>
+            <View>
+              <Text style={styles.statLabel}>Expense</Text>
+              <Text style={styles.statValue}>
+                {hideBalance ? '••••' : `₹${expense.toLocaleString('en-IN')}`}
+              </Text>
+            </View>
           </View>
         </View>
-        
-        <View style={styles.statDivider} />
-        
-        <View style={styles.statItem}>
-          <View style={styles.statIconWrapper}>
-            <Ionicons name="arrow-up-circle" size={16} color="#EF4444" />
-          </View>
-          <View>
-            <Text style={styles.statLabel}>Expense</Text>
-            <Text style={styles.statValue}>₹{expense.toLocaleString('en-IN')}</Text>
-          </View>
-        </View>
-      </View>
 
-      <View style={styles.quickActions}>
-        <TouchableOpacity style={styles.quickActionBtn} onPress={() => router.push('/add-transaction')}>
-          <Ionicons name="add-circle" size={20} color="white" />
-          <Text style={styles.quickActionText}>Add</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionBtn}>
-          <Ionicons name="swap-horizontal" size={20} color="white" />
-          <Text style={styles.quickActionText}>Transfer</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.quickActionBtn}>
-          <Ionicons name="card" size={20} color="white" />
-          <Text style={styles.quickActionText}>Cards</Text>
-        </TouchableOpacity>
-      </View>
-    </LinearGradient>
-  </MotiView>
-);
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionBtn} 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/add-transaction');
+            }}
+          >
+            <Ionicons name="add-circle" size={20} color="white" />
+            <Text style={styles.quickActionText}>Add</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.quickActionBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/import-screen');
+            }}
+          >
+            <Ionicons name="download" size={20} color="white" />
+            <Text style={styles.quickActionText}>Import</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.quickActionBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/(tabs)/reports');
+            }}
+          >
+            <Ionicons name="bar-chart" size={20} color="white" />
+            <Text style={styles.quickActionText}>Reports</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </MotiView>
+  );
+};
 
 // 💡 WALLET GOALS WIDGET - NOW WITH REAL DATA
 const GoalWidget = ({ goal, theme, onAddContribution }: any) => {

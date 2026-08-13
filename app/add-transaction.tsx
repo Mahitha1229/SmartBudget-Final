@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // --- STORES & LIBS ---
 import { CATEGORIES, getDescriptionSuggestions } from '../constants/category';
 import { Colors } from '../constants/theme';
-import { getCategoryColor, getCategoryIcon } from './_lib/autoCategorize';
+import { categorizeTransaction, getCategoryColor, getCategoryIcon, isValidCategory } from './_lib/autoCategorize';
 import { useAuthStore } from './_lib/useAuthStore';
 import { useBudgetStore } from './_lib/useBudgetStore';
 import { useThemeStore } from './_lib/useThemeStore';

@@ -1,10 +1,10 @@
 // SmartBudget/app/_lib/useTransactionStore.ts - WITH DEBUGGING
-import { create } from 'zustand';
+import { collection, doc, getFirestore, writeBatch } from 'firebase/firestore';
 import { useMemo } from 'react';
-import { firestoreService, Transaction as ImportedTransaction } from '../../src/services/firestoreService'; 
-import { writeBatch, doc, getFirestore, collection } from 'firebase/firestore'; 
+import { create } from 'zustand';
+import { firestoreService, Transaction as ImportedTransaction } from '../../src/services/firestoreService';
 
-export interface Transaction extends ImportedTransaction {}
+export type Transaction = ImportedTransaction;
 
 type TransactionInput = Omit<Transaction, 'id' | 'userId' | 'createdAt'> & { date: Date };
 

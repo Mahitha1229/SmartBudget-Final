@@ -1,32 +1,22 @@
-// _lib/useThemeStore.ts
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Appearance } from 'react-native';
+/**
+ * Learn more about light and dark modes:
+ * https://docs.expo.dev/guides/color-schemes/
+ */
 
-interface ThemeState {
-  isDarkMode: boolean;
-  toggleTheme: () => void;
-  setTheme: (isDark: boolean) => void;
+import { useThemeStore } from '@/app/_lib/useThemeStore';
+import { Colors } from '@/constants/theme';
+
+export function useThemeColor(
+  props: { light?: string; dark?: string },
+  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+) {
+  const isDarkMode = useThemeStore((state) => state.isDarkMode);
+  const theme = isDarkMode ? 'dark' : 'light';
+  const colorFromProps = props[theme];
+
+  if (colorFromProps) {
+    return colorFromProps;
+  } else {
+    return Colors[theme][colorName];
+  }
 }
-
-export const useThemeStore = create<ThemeState>()(
-  persist(
-    (set) => ({
-      // Default to system preference if no saved value exists
-      isDarkMode: Appearance.getColorScheme() === 'dark',
-
-      toggleTheme: () => set((state) => ({ 
-        isDarkMode: !state.isDarkMode 
-      })),
-
-      setTheme: (isDark: boolean) => set({ 
-        isDarkMode: isDark 
-      }),
-    }),
-    {
-      name: 'smartbudget-theme-storage', // unique name for AsyncStorage
-      storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
-);

@@ -263,9 +263,8 @@ export class CategorizationService {
   static getCategoryProbabilities(
     description: string,
     merchant?: string | undefined
-  ): Array<{ category: string; confidence: number }> {
-    const text = `${description} ${merchant || ''}`.toLowerCase();
-    const probabilities: Array<{ category: string; confidence: number }> = [];
+  ): { category: string; confidence: number }[] {
+    const probabilities: { category: string; confidence: number }[] = [];
 
     for (const rule of CATEGORY_RULES) {
       if (rule.category === 'Other') continue;
@@ -288,8 +287,8 @@ export class CategorizationService {
    * Batch categorize multiple transactions
    */
   static batchCategorize(
-    transactions: Array<{ description: string; merchant?: string }>
-  ): Array<{ category: string; confidence: number }> {
+    transactions: { description: string; merchant?: string }[]
+  ): { category: string; confidence: number }[] {
     return transactions.map((t) => ({
       category: this.categorize(t.description, t.merchant),
       confidence: this.getConfidence(

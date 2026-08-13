@@ -1,10 +1,10 @@
 // SmartBudget/components/PremiumCard.tsx
-import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
-import { Colors } from '../constants/theme';
+import React from 'react';
+import { StyleSheet, ViewStyle } from 'react-native';
 import { useThemeStore } from '../app/_lib/useThemeStore';
+import { Colors } from '../constants/theme';
 
 interface PremiumCardProps {
   children: React.ReactNode;

@@ -397,7 +397,7 @@ export class CSVParserService {
         valid: true,
         rowCount: result.data.length,
       };
-    } catch (error) {
+    } catch {
       return {
         valid: false,
         error: 'Invalid CSV format',

@@ -29,7 +29,7 @@
     },
     "web": {
       "output": "single",
-      "bundler" : "metro",
+      "bundler": "metro",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -53,7 +53,10 @@
       "reactCompiler": true
     },
     "extra": {
-  "router": {}
-}
+      "router": {},
+      "eas": {
+        "projectId": "8909de61-0788-4c9e-96e6-c1779ad98666"
+      }
+    }
   }
 }

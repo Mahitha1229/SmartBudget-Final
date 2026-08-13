@@ -113,6 +113,7 @@ export const Colors = {
     },
     
     tint: '#818CF8',
+    icon: '#94A3B8',
   }
 };
 

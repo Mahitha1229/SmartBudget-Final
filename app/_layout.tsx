@@ -5,7 +5,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { ActivityIndicator, View, StyleSheet, Text, Dimensions } from 'react-native'; 
 import { SafeAreaProvider } from 'react-native-safe-area-context'; 
 import { StatusBar } from 'expo-status-bar';
-import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate, withDelay } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, interpolate } from 'react-native-reanimated';
 
 import { useAuthStore } from './_lib/useAuthStore'; 
 import { useThemeStore } from './_lib/useThemeStore'; 
@@ -16,27 +16,14 @@ const { width, height } = Dimensions.get('window');
 // ✨ VIBRANT LIQUID BACKGROUND COMPONENT
 function BackgroundGlow() {
   const { isDarkMode } = useThemeStore();
-  const move = useSharedValue(0);
-
-  useEffect(() => {
-    move.value = withRepeat(withTiming(1, { duration: 15000 }), -1, true);
-  }, []);
-
-  const glowStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: interpolate(move.value, [0, 1], [-width * 0.2, width * 0.2]) },
-      { translateY: interpolate(move.value, [0, 1], [-height * 0.1, height * 0.1]) },
-    ],
-  }));
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: isDarkMode ? '#020617' : '#F8FAFC', zIndex: -1 }]}>
-      <Animated.View style={[styles.blob, { backgroundColor: '#3B82F6', top: -100, left: -100, opacity: isDarkMode ? 0.15 : 0.1 }, glowStyle]} />
-      <Animated.View style={[styles.blob, { backgroundColor: '#8B5CF6', bottom: -100, right: -100, opacity: isDarkMode ? 0.12 : 0.08 }, glowStyle]} />
+      <View style={[styles.blob, { backgroundColor: '#3B82F6', top: -100, left: -100, opacity: isDarkMode ? 0.15 : 0.1 }]} />
+      <View style={[styles.blob, { backgroundColor: '#8B5CF6', bottom: -100, right: -100, opacity: isDarkMode ? 0.12 : 0.08 }]} />
     </View>
   );
 }
-
 function RootLayoutContent() {
     const { user, isLoading, initializeAuth } = useAuthStore(); 
     const { isDarkMode } = useThemeStore();

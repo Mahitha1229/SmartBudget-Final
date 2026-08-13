@@ -28,7 +28,8 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "static",
+      "output": "single",
+      "bundler" : "metro",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -52,10 +53,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "75634582-b368-4c9e-aaf3-5f856f198fff"
-      }
-    }
+  "router": {}
+}
   }
 }

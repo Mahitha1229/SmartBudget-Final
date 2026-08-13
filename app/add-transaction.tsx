@@ -282,7 +282,16 @@ export default function PremiumAddTransactionScreen() {
                   placeholder={type === 'credit' ? 'Income source' : 'What did you buy?'}
                   placeholderTextColor={theme.subtext}
                   value={description}
-                  onChangeText={setDescription}
+                  onChangeText={(text) => {
+  setDescription(text);
+  if (type === 'debit' && text.trim().length >= 3) {
+    const detected = categorizeTransaction(text);
+    if (detected !== 'Other' && detected !== category && isValidCategory(detected)) {
+      setCategory(detected);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }
+}}
                   onFocus={() => setShowSuggestions(true)}
                 />
               </View>

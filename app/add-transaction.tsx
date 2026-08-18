@@ -92,9 +92,10 @@ export default function PremiumAddTransactionScreen() {
   };
 
   const handleSave = async () => {
-    if (!user?.uid || !amount || parseFloat(amount) <= 0) {
+        if (!user?.uid || !amount || parseFloat(amount) <= 0) {
       Alert.alert('Missing Info', 'Please enter a valid amount.');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setErrorPulse(prev => prev + 1);
       return;
     }
     

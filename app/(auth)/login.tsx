@@ -163,10 +163,10 @@ export default function LoginScreen() {
             onPress={() => promptAsync()}
             disabled={loading || !request}
           >
-            <Ionicons name="logo-google" size={20} color={isDarkMode ? 'white' : '#4285F4'} />
+                        <Ionicons name="logo-google" size={20} color={isDarkMode ? 'white' : '#4285F4'} />
             <Text style={[styles.googleBtnText, { color: theme.text }]}>Continue with Google</Text>
           </TouchableOpacity>
-        </View>
+        </MotiView>
 
         <TouchableOpacity 
           onPress={() => router.push("/(auth)/signup")} 

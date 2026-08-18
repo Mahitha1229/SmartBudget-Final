@@ -555,10 +555,8 @@ export default function PremiumActivityScreen() {
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={theme.tint} />
         }
       >
-        {isLoading && transactions.length === 0 ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={theme.tint} />
-          </View>
+                {isLoading && transactions.length === 0 ? (
+          <ActivitySkeleton theme={theme} />
         ) : filteredTransactions.length === 0 ? (
           <MotiView 
             from={{ opacity: 0, translateY: 20 }}

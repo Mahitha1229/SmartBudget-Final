@@ -276,13 +276,12 @@ export default function PremiumBudgetScreen() {
     );
   };
 
-  const handleRefresh = async () => {
-    if (!user?.uid) return;
-    setRefreshing(true);
+    const handleRefresh = async () => {
+    // Budgets are now live via onSnapshot, so there's nothing to manually
+    // refetch — this just gives a brief tactile confirmation.
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    useBudgetStore.setState({ lastFetched: null });
-    await fetchBudgets(user.uid);
-    setRefreshing(false);
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 400);
   };
 
   const showSkeleton = authLoading || (isLoading && budgets.length === 0 && !isInitialized);

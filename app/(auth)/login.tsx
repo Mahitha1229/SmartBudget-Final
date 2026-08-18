@@ -142,7 +142,16 @@ export default function LoginScreen() {
             />
           </View>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                    {error ? (
+            <MotiView
+              key={error}
+              from={{ translateX: -8 }}
+              animate={{ translateX: 0 }}
+              transition={{ type: 'spring', damping: 4, stiffness: 250 }}
+            >
+              <Text style={styles.errorText}>{error}</Text>
+            </MotiView>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.loginBtn, { backgroundColor: theme.tint }, loading && { opacity: 0.7 }]}

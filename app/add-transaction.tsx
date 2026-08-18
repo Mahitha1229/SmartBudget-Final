@@ -160,7 +160,7 @@ export default function PremiumAddTransactionScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* AMOUNT CARD */}
-          <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                    <MotiView key={errorPulse} from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', damping: 10 }}>
             <LinearGradient
               colors={type === 'debit' ? ['#FEE2E2', '#FEF2F2'] : ['#D1FAE5', '#ECFDF5']}
               style={styles.amountCard}

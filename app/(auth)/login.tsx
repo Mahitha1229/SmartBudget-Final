@@ -24,6 +24,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { MotiView } from 'moti';
 import { Colors } from "../../constants/theme";
 import { auth } from "../_lib/firebase";
 import { useThemeStore } from "../_lib/useThemeStore";

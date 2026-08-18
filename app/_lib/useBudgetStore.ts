@@ -1,4 +1,10 @@
 // app/_lib/useBudgetStore.ts
+import {
+    collection,
+    getFirestore,
+    onSnapshot,
+    Unsubscribe,
+} from 'firebase/firestore';
 import { create } from 'zustand';
 import { firestoreService } from '../../src/services/firestoreService';
 import { Transaction, useTransactionStore } from './useTransactionStore';
@@ -19,10 +25,9 @@ export type UpdateBudgetInput = { limit: number };
 interface BudgetStore {
     budgets: Budget[];
     isLoading: boolean;
+    isInitialized: boolean;
     error: string | null;
-    lastFetched: number | null;
 
-    fetchBudgets: (userId: string) => Promise<void>;
     addBudget: (newBudgetData: NewBudgetInput) => Promise<void>;
     updateBudget: (budget: Budget, updates: UpdateBudgetInput) => Promise<void>;
     deleteBudget: (budget: Budget) => Promise<void>;
@@ -30,31 +35,28 @@ interface BudgetStore {
     calculateSpent: (budgets: Budget[], transactions: Transaction[]) => Budget[];
     recalculateAllBudgets: () => void;
     initialize: (userId: string) => void;
+    stopListening: () => void;
 }
 
-let isInitialized = false;
+let unsubscribeBudgets: Unsubscribe | null = null;
+let unsubscribeFromTransactionStore: (() => void) | null = null;
+let initializedForUserId: string | null = null;
 
 export const useBudgetStore = create<BudgetStore>((set, get) => ({
     budgets: [],
     isLoading: false,
+    isInitialized: false,
     error: null,
-    lastFetched: null,
 
     /**
      * Calculates 'spent' per budget by summing matching transactions.
-     *
-     * FIX: previously matched on `tx.amount < 0`, but transactions store
-     * amount as a positive number with `type: 'debit' | 'credit'` carrying
-     * the sign (same convention used in useTransactionData's totals). That
-     * mismatch meant `spent` silently stayed at 0 for every budget. Now
-     * matches on `type === 'debit'`, consistent with the rest of the app.
+     * Matches on `type === 'debit'`, consistent with the rest of the app.
      */
     calculateSpent: (currentBudgets, allTransactions) => {
         return currentBudgets.map(budget => {
             const spent = allTransactions
                 .filter(tx => tx.category === budget.category && tx.type === 'debit')
                 .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-
             return { ...budget, spent };
         });
     },
@@ -62,74 +64,83 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
     recalculateAllBudgets: () => {
         const { budgets, calculateSpent } = get();
         if (budgets.length === 0) return;
-
         const currentTransactions = useTransactionStore.getState().transactions;
-        const finalBudgets = calculateSpent(budgets, currentTransactions);
-        set({ budgets: finalBudgets });
+        set({ budgets: calculateSpent(budgets, currentTransactions) });
     },
 
     /**
-     * Subscribes to transaction store changes so budgets recalculate
-     * automatically whenever a transaction is added/edited/deleted —
-     * including changes that arrive live from another device via the
-     * transaction store's onSnapshot listener.
+     * Live Firestore listener for budgets, PLUS a subscription to the
+     * transaction store so `spent` recalculates instantly whenever a
+     * transaction changes — from this device or (via onSnapshot in
+     * useTransactionStore) any other device on the same account.
      */
     initialize: (userId: string) => {
-        if (isInitialized) return;
-        isInitialized = true;
+        // Avoid re-subscribing if already listening for this exact user.
+        if (initializedForUserId === userId && unsubscribeBudgets) return;
 
-        let previousTransactions = useTransactionStore.getState().transactions;
-
-        useTransactionStore.subscribe((state) => {
-            const currentTransactions = state.transactions;
-            if (currentTransactions !== previousTransactions) {
-                get().recalculateAllBudgets();
-                previousTransactions = currentTransactions;
-            }
-        });
-
-        get().fetchBudgets(userId);
-    },
-
-    fetchBudgets: async (userId: string) => {
-        if (!userId) {
-            set({ isLoading: false, budgets: [] });
-            return;
+        // Tear down any previous listeners (e.g. user switched accounts).
+        if (unsubscribeBudgets) {
+            unsubscribeBudgets();
+            unsubscribeBudgets = null;
+        }
+        if (unsubscribeFromTransactionStore) {
+            unsubscribeFromTransactionStore();
+            unsubscribeFromTransactionStore = null;
         }
 
-        const { lastFetched, isLoading } = get();
-        const CACHE_LIFETIME = 60000;
-
-        if (isLoading || (lastFetched && Date.now() - lastFetched < CACHE_LIFETIME && get().budgets.length > 0)) {
-            return;
-        }
-
+        initializedForUserId = userId;
         set({ isLoading: true, error: null });
 
-        try {
-            const rawBudgets = await firestoreService.fetchDocuments<Omit<Budget, 'spent'>>(
-                `users/${userId}/budgets`
-            );
-            const budgetsWithZeroSpent: Budget[] = rawBudgets.map(doc => ({ ...doc, spent: 0 }));
-            const currentTransactions = useTransactionStore.getState().transactions;
-            const finalBudgets = get().calculateSpent(budgetsWithZeroSpent, currentTransactions);
+        const db = getFirestore();
+        const budgetsRef = collection(db, `users/${userId}/budgets`);
 
-            set({ budgets: finalBudgets, isLoading: false, lastFetched: Date.now() });
-        } catch (err: any) {
-            console.error("Failed to fetch budgets:", err.message);
-            set({ error: err.message || "Failed to fetch budgets.", isLoading: false });
+        unsubscribeBudgets = onSnapshot(
+            budgetsRef,
+            (snapshot) => {
+                const rawBudgets = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...(doc.data() as Omit<Budget, 'id' | 'spent'>),
+                    spent: 0,
+                }));
+                const currentTransactions = useTransactionStore.getState().transactions;
+                const finalBudgets = get().calculateSpent(rawBudgets, currentTransactions);
+                set({ budgets: finalBudgets, isLoading: false, isInitialized: true });
+            },
+            (error) => {
+                console.error('[BudgetStore] listener error:', error.message);
+                set({ error: error.message, isLoading: false, isInitialized: true });
+            }
+        );
+
+        // Recalculate spent amounts whenever transactions change live.
+        let previousTransactions = useTransactionStore.getState().transactions;
+        unsubscribeFromTransactionStore = useTransactionStore.subscribe((state) => {
+            if (state.transactions !== previousTransactions) {
+                get().recalculateAllBudgets();
+                previousTransactions = state.transactions;
+            }
+        });
+    },
+
+    stopListening: () => {
+        if (unsubscribeBudgets) {
+            unsubscribeBudgets();
+            unsubscribeBudgets = null;
         }
+        if (unsubscribeFromTransactionStore) {
+            unsubscribeFromTransactionStore();
+            unsubscribeFromTransactionStore = null;
+        }
+        initializedForUserId = null;
     },
 
     addBudget: async (newBudgetData) => {
         const { userId } = newBudgetData;
         if (!userId) throw new Error("User ID is required to add a budget.");
-
         set({ error: null });
         try {
             await firestoreService.addDocument(`users/${userId}/budgets`, newBudgetData);
-            set({ lastFetched: null });
-            await get().fetchBudgets(userId);
+            // No manual refetch — the onSnapshot listener picks it up.
         } catch (err: any) {
             console.error("Failed to add budget:", err.message);
             set({ error: err.message || "Failed to add budget." });
@@ -141,11 +152,8 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
         set({ error: null });
         const { userId, id: budgetId } = budget;
         if (!userId) throw new Error("User ID is required to update a budget.");
-
         try {
             await firestoreService.updateDocument(`users/${userId}/budgets/${budgetId}`, updates);
-            set({ lastFetched: null });
-            await get().fetchBudgets(userId);
         } catch (err: any) {
             console.error("Failed to update budget:", err.message);
             set({ error: err.message || "Failed to update budget." });
@@ -157,11 +165,8 @@ export const useBudgetStore = create<BudgetStore>((set, get) => ({
         set({ error: null });
         const { userId, id: budgetId } = budget;
         if (!userId) throw new Error("User ID is required to delete a budget.");
-
         try {
             await firestoreService.deleteDocument(`users/${userId}/budgets/${budgetId}`);
-            set({ lastFetched: null });
-            await get().fetchBudgets(userId);
         } catch (err: any) {
             console.error("Failed to delete budget:", err.message);
             set({ error: err.message || "Failed to delete budget." });

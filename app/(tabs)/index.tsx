@@ -418,8 +418,9 @@ export default function PremiumDashboard() {
     totalExpense,
   } = useTransactionData();
 
-  const budgets = useBudgetStore(state => state.budgets);
+   const budgets = useBudgetStore(state => state.budgets);
   const goals = useGoalsStore(state => state.goals);
+  const insights = React.useMemo(() => generateInsights(transactions, budgets), [transactions, budgets]);
   const addContribution = useGoalsStore(state => state.addContribution);
   const addGoal = useGoalsStore(state => state.addGoal);
 

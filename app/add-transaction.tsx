@@ -231,18 +231,25 @@ export default function PremiumAddTransactionScreen() {
                   const isSelected = category === cat.name;
                   const catHasBudget = budgets.some(b => b.category === cat.name);
                   
-                  return (
+                                    return (
                     <TouchableOpacity
                       key={cat.name}
+                      activeOpacity={0.85}
                       onPress={() => { setCategory(cat.name); setDescription(''); setShowSuggestions(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
-                      style={[
-                        styles.categoryChip,
-                        isSelected ? { backgroundColor: cat.color, borderColor: cat.color } : { backgroundColor: theme.card, borderColor: theme.border }
-                      ]}
                     >
-                      {catHasBudget && <View style={[styles.budgetDot, { backgroundColor: '#10B981' }]} />}
-                      <Ionicons name={cat.icon as any} size={20} color={isSelected ? 'white' : cat.color} />
-                      <Text style={[styles.categoryChipText, { color: isSelected ? 'white' : theme.text }]}>{cat.name}</Text>
+                      <MotiView
+                        animate={{
+                          scale: isSelected ? 1.06 : 1,
+                          backgroundColor: isSelected ? cat.color : theme.card,
+                          borderColor: isSelected ? cat.color : theme.border,
+                        }}
+                        transition={{ type: 'spring', damping: 14, mass: 0.6 }}
+                        style={[styles.categoryChip, { borderWidth: 2 }]}
+                      >
+                        {catHasBudget && <View style={[styles.budgetDot, { backgroundColor: '#10B981' }]} />}
+                        <Ionicons name={cat.icon as any} size={20} color={isSelected ? 'white' : cat.color} />
+                        <Text style={[styles.categoryChipText, { color: isSelected ? 'white' : theme.text }]}>{cat.name}</Text>
+                      </MotiView>
                     </TouchableOpacity>
                   );
                 })}

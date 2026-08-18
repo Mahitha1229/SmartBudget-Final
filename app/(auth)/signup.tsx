@@ -2,6 +2,7 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
+import { MotiView } from 'moti'
 import { router } from "expo-router"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
@@ -84,13 +85,23 @@ export default function SignupScreen() {
            <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
 
-        <View style={styles.header}>
+                <MotiView
+          from={{ opacity: 0, translateY: -15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 16 }}
+          style={styles.header}
+        >
           <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: theme.subtext }]}>Join SmartBudget and take control of your money</Text>
-        </View>
+        </MotiView>
 
         {/* Input Fields */}
-        <View style={[styles.formContainer, { backgroundColor: theme.card }]}>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 16, delay: 100 }}
+          style={[styles.formContainer, { backgroundColor: theme.card }]}
+        >
           <View style={styles.inputWrapper}>
             <Text style={[styles.label, { color: theme.subtext }]}>Email Address</Text>
             <TextInput

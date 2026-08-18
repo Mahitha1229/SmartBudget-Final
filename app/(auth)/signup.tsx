@@ -1,26 +1,25 @@
 // app/(auth)/signup.tsx
 "use client"
 
+import { Ionicons } from "@expo/vector-icons"
+import { router } from "expo-router"
+import { createUserWithEmailAndPassword } from "firebase/auth"
+import { doc, setDoc } from "firebase/firestore"
 import React, { useState } from "react"
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
-  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native"
-import { createUserWithEmailAndPassword } from "firebase/auth"
-import { doc, setDoc } from "firebase/firestore"
-import { auth, db } from "../_lib/firebase" 
-import { router } from "expo-router"
-import { useThemeStore } from "../_lib/useThemeStore"
 import { Colors } from "../../constants/theme"
-import { Ionicons } from "@expo/vector-icons"
+import { auth, db } from "../_lib/firebase"
+import { useThemeStore } from "../_lib/useThemeStore"
 
 export default function SignupScreen() {
   const { isDarkMode } = useThemeStore();

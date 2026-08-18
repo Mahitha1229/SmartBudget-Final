@@ -2,10 +2,10 @@
 "use client"
 
 import { Ionicons } from "@expo/vector-icons"
-import { MotiView } from 'moti'
 import { router } from "expo-router"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { doc, setDoc } from "firebase/firestore"
+import { MotiView } from 'moti'
 import React, { useState } from "react"
 import {
   ActivityIndicator,
@@ -146,9 +146,9 @@ export default function SignupScreen() {
             onPress={handleSignup}
             disabled={loading}
           >
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupBtnText}>Get Started</Text>}
+                        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.signupBtnText}>Get Started</Text>}
           </TouchableOpacity>
-        </View>
+        </MotiView>
 
         <TouchableOpacity 
           onPress={() => router.push("/login")} 

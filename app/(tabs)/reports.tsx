@@ -222,10 +222,30 @@ export default function ReportsScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('month');
   const [isExporting, setIsExporting] = useState(false);
 
-  const reportData = useMemo(() => 
+    const reportData = useMemo(() => 
     generateReportData(transactions, budgets, selectedPeriod),
     [transactions, budgets, selectedPeriod]
   );
+
+  // Fixed 6-month trend, independent of the period selector above —
+  // used only for the bar chart, so switching periods doesn't distort it.
+  const monthlyTrend = useMemo(() => {
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleDateString('en-IN', { month: 'short' }) });
+    }
+    return months.map((m) => {
+      const monthExpense = transactions
+        .filter(t => {
+          const td = new Date(t.date);
+          return t.type === 'debit' && td.getFullYear() === m.year && td.getMonth() === m.month;
+        })
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      return { label: m.label, expense: monthExpense };
+    });
+  }, [transactions]);
 
   const handleExportCSV = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

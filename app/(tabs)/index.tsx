@@ -339,7 +339,33 @@ const BudgetMiniCard = ({ budget, theme }: any) => {
     </View>
   );
 };
+// 🧠 INSIGHT CARD
+const INSIGHT_COLORS: Record<string, [string, string]> = {
+  critical: ['#F87171', '#EF4444'],
+  warning: ['#FBBF24', '#F59E0B'],
+  positive: ['#34D399', '#10B981'],
+  neutral: ['#818CF8', '#6366F1'],
+};
 
+const InsightCard = ({ insight, theme, index }: { insight: Insight; theme: any; index: number }) => {
+  const colors = INSIGHT_COLORS[insight.severity] as [string, string];
+  return (
+    <MotiView
+      from={{ opacity: 0, translateX: 20 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ type: 'timing', duration: 350, delay: index * 100 }}
+      style={styles.insightCard}
+    >
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.insightGradient}>
+        <View style={styles.insightIconWrap}>
+          <Ionicons name={insight.icon as any} size={20} color="white" />
+        </View>
+        <Text style={styles.insightTitle}>{insight.title}</Text>
+        <Text style={styles.insightMessage} numberOfLines={3}>{insight.message}</Text>
+      </LinearGradient>
+    </MotiView>
+  );
+};
 // 🔥 TRENDING TRANSACTION CARD
 const TrendingCard = ({ transaction, theme, index }: any) => (
   <MotiView

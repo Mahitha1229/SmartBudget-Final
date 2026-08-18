@@ -6,6 +6,7 @@ import { MotiView } from 'moti';
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, G } from 'react-native-svg';
 import { CATEGORIES } from '../../constants/category';
 import { Colors } from '../../constants/theme';
 import { useAuthStore } from '../_lib/useAuthStore';

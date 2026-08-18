@@ -86,17 +86,27 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Header Section */}
-        <View style={styles.header}>
+                {/* Header Section */}
+        <MotiView
+          from={{ opacity: 0, translateY: -15 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 16 }}
+          style={styles.header}
+        >
           <View style={[styles.logoCircle, { backgroundColor: isDarkMode ? theme.card : '#E0F2FE' }]}>
             <Text style={styles.logoText}>💰</Text>
           </View>
           <Text style={[styles.title, { color: theme.text }]}>Welcome Back</Text>
           <Text style={[styles.subtitle, { color: theme.subtext }]}>Log in to manage your SmartBudget</Text>
-        </View>
+        </MotiView>
 
         {/* Input Fields */}
-        <View style={[styles.formContainer, { backgroundColor: theme.card }]}>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 16, delay: 100 }}
+          style={[styles.formContainer, { backgroundColor: theme.card }]}
+        >
           <View style={styles.inputWrapper}>
             <Text style={[styles.label, { color: theme.subtext }]}>Email Address</Text>
             <TextInput

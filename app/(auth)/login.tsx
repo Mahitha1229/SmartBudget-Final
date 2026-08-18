@@ -1,35 +1,32 @@
 // app/(auth)/login.tsx
 "use client"
 
-import React, { useState, useEffect } from "react" 
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  GoogleAuthProvider,
+  signInWithCredential,
+  signInWithEmailAndPassword
+} from "firebase/auth";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  ActivityIndicator,
-  Alert,
-} from "react-native"
-import { 
-  signInWithEmailAndPassword,
-  GoogleAuthProvider,     
-  signInWithCredential, 
-  signInWithPopup, 
-  AuthError, 
-} from "firebase/auth" 
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
 
-import * as Google from 'expo-auth-session/providers/google'; 
-import * as WebBrowser from 'expo-web-browser'; 
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 
-import { auth } from "../_lib/firebase" 
-import { router } from "expo-router"
-import { useThemeStore } from "../_lib/useThemeStore"
-import { Colors } from "../../constants/theme"
-import { Ionicons } from "@expo/vector-icons"
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Colors } from "../../constants/theme";
+import { auth } from "../_lib/firebase";
+import { useThemeStore } from "../_lib/useThemeStore";
 
 WebBrowser.maybeCompleteAuthSession();
 

@@ -1,19 +1,17 @@
 // SmartBudget/app/(tabs)/reports.tsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, TouchableOpacity, Alert, Share } from 'react-native';
-import { SafeAreaView } from "react-native-safe-area-context"; 
 import { Ionicons } from '@expo/vector-icons';
-import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import * as Sharing from 'expo-sharing';
-
-import { useAuthStore } from '../_lib/useAuthStore'; 
-import { useThemeStore } from '../_lib/useThemeStore';
-import { Colors } from '../../constants/theme';
-import { useTransactionData, Transaction } from '../_lib/useTransactionStore';
-import { useBudgetStore } from '../_lib/useBudgetStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CATEGORIES } from '../../constants/category';
+import { Colors } from '../../constants/theme';
+import { useAuthStore } from '../_lib/useAuthStore';
+import { useBudgetStore } from '../_lib/useBudgetStore';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { Transaction, useTransactionData } from '../_lib/useTransactionStore';
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,

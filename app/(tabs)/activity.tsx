@@ -486,9 +486,10 @@ export default function PremiumActivityScreen() {
 
       {/* FILTER PANEL */}
       {showFilters && !isSelectionMode && (
-        <MotiView
-          from={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
+                <MotiView
+          from={{ opacity: 0, translateY: -10 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 250 }}
           style={[styles.filterPanel, { backgroundColor: theme.card }]}
         >
           <View style={styles.filterHeader}>

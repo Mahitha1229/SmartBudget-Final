@@ -436,7 +436,19 @@ export default function ReportsScreen() {
               gradient={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary}
               theme={theme}
             />
-          </View>
+                    </View>
+
+          {monthlyTrend.some(m => m.expense > 0) && (
+            <View style={{ marginBottom: 16 }}>
+              <MonthlyBarChart data={monthlyTrend} theme={theme} />
+            </View>
+          )}
+
+          {reportData.categories.length > 0 && (
+            <View style={{ marginBottom: 25 }}>
+              <CategoryDonut categories={reportData.categories} theme={theme} />
+            </View>
+          )}
 
           {/* EXPORT BUTTONS */}
           <View style={styles.exportSection}>

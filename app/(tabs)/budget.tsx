@@ -1,53 +1,92 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { 
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, 
-  ActivityIndicator, Dimensions, Modal, TextInput, 
-  KeyboardAvoidingView, Platform, Pressable, Alert 
-} from "react-native";
+// app/(tabs)/budget.tsx
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Dimensions,
+  KeyboardAvoidingView,
+  Modal,
+  Platform, Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, G } from 'react-native-svg';
 
-// --- STORES & LIBS ---
-import { useBudgetStore, Budget } from '../_lib/useBudgetStore';
-import { useAuthStore } from '../_lib/useAuthStore';
-import { useThemeStore } from '../_lib/useThemeStore';
-import { useTransactionData } from '../_lib/useTransactionStore';
 import { Colors } from '../../constants/theme';
-import { generateBudgetPredictions, needsBudgetAdjustment, BudgetPrediction } from '../_lib/budgetPrediction';
-import { getCategoryIcon, getCategoryColor } from '../_lib/autoCategorize';
+import { getCategoryColor, getCategoryIcon } from '../_lib/autoCategorize';
+import { useAuthStore } from '../_lib/useAuthStore';
+import { Budget, useBudgetStore } from '../_lib/useBudgetStore';
+import { useThemeStore } from '../_lib/useThemeStore';
 
 const { width } = Dimensions.get('window');
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,
   primaryDark: ['#4F46E5', '#7C3AED', '#C084FC'] as const,
 };
 
-// --- CIRCULAR PROGRESS COMPONENT ---
-const CircularProgress = ({ 
+// --- ANIMATED CIRCULAR PROGRESS ---
+const CircularProgress = ({
   size = 120, strokeWidth = 12, progress, color, backgroundColor = '#E2E8F0'
 }: any) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (circumference * Math.min(progress, 100)) / 100;
+  const animatedProgress = useSharedValue(0);
+
+  useEffect(() => {
+    animatedProgress.value = withTiming(Math.min(progress, 100), {
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progress]);
+
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference - (circumference * animatedProgress.value) / 100,
+  }));
 
   return (
     <Svg width={size} height={size}>
       <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
         <Circle stroke={backgroundColor} fill="none" cx={size / 2} cy={size / 2} r={radius} strokeWidth={strokeWidth} />
-        <Circle
+        <AnimatedCircle
           stroke={color} fill="none" cx={size / 2} cy={size / 2} r={radius}
           strokeWidth={strokeWidth} strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+          animatedProps={animatedProps} strokeLinecap="round"
         />
       </G>
     </Svg>
   );
 };
+
+// --- SKELETON ---
+const SkeletonBlock = ({ style, theme }: any) => (
+  <MotiView
+    style={[{ backgroundColor: theme.border, borderRadius: 20, overflow: 'hidden' }, style]}
+    from={{ opacity: 0.4 }}
+    animate={{ opacity: 1 }}
+    transition={{ type: 'timing', duration: 800, loop: true }}
+  />
+);
+
+const BudgetSkeleton = ({ theme }: any) => (
+  <View style={{ paddingHorizontal: 20 }}>
+    <SkeletonBlock theme={theme} style={{ height: 110, borderRadius: 24, marginBottom: 20 }} />
+    <SkeletonBlock theme={theme} style={{ height: 90, marginBottom: 12 }} />
+    <SkeletonBlock theme={theme} style={{ height: 90, marginBottom: 12 }} />
+    <SkeletonBlock theme={theme} style={{ height: 90 }} />
+  </View>
+);
 
 // --- ADD BUDGET MODAL ---
 const AddBudgetModal = ({ visible, onClose, onSave, theme, isDarkMode }: any) => {
@@ -70,7 +109,12 @@ const AddBudgetModal = ({ visible, onClose, onSave, theme, isDarkMode }: any) =>
       <View style={styles.modalOverlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalKeyboardview}>
-          <MotiView from={{ translateY: 300 }} animate={{ translateY: 0 }} style={[styles.modalContainer, { backgroundColor: theme.card }]}>
+          <MotiView
+            from={{ translateY: 300 }}
+            animate={{ translateY: 0 }}
+            transition={{ type: 'spring', damping: 22 }}
+            style={[styles.modalContainer, { backgroundColor: theme.card }]}
+          >
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>New Budget</Text>
               <TouchableOpacity onPress={onClose}><Ionicons name="close-circle" size={28} color={theme.subtext} /></TouchableOpacity>
@@ -104,8 +148,8 @@ const AddBudgetModal = ({ visible, onClose, onSave, theme, isDarkMode }: any) =>
 };
 
 // --- PREMIUM BUDGET CARD ---
-const PremiumBudgetCard = ({ 
-  budget, prediction, onPress, onLongPress, theme, isDarkMode 
+const PremiumBudgetCard = ({
+  budget, onPress, onLongPress, theme, index
 }: any) => {
   const progress = budget.limit > 0 ? Math.min((budget.spent / budget.limit) * 100, 100) : 0;
   const isOver = budget.spent > budget.limit;
@@ -115,13 +159,12 @@ const PremiumBudgetCard = ({
   const icon = getCategoryIcon(budget.category);
 
   return (
-    <TouchableOpacity 
-      onPress={onPress} 
-      onLongPress={onLongPress} // Added for deletion
-      activeOpacity={0.8} 
-      style={styles.cardWrapper}
+    <MotiView
+      from={{ opacity: 0, translateY: 15 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ type: 'timing', duration: 350, delay: index * 60 }}
     >
-      <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      <TouchableOpacity onPress={onPress} onLongPress={onLongPress} activeOpacity={0.8} style={styles.cardWrapper}>
         <LinearGradient
           colors={[cardColor + '15', cardColor + '05'] as const}
           style={[styles.budgetCard, { borderColor: cardColor + '30', backgroundColor: theme.card }]}
@@ -139,13 +182,15 @@ const PremiumBudgetCard = ({
               </View>
               <View>
                 <Text style={[styles.categoryName, { color: theme.text }]}>{budget.category}</Text>
-                <Text style={{ color: theme.subtext, fontSize: 12 }}>₹{remaining.toLocaleString()} left</Text>
+                <Text style={{ color: theme.subtext, fontSize: 12 }}>
+                  {isOver ? `₹${Math.abs(remaining).toLocaleString()} over` : `₹${remaining.toLocaleString()} left`}
+                </Text>
               </View>
             </View>
           </View>
         </LinearGradient>
-      </MotiView>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </MotiView>
   );
 };
 
@@ -156,30 +201,53 @@ const SummaryHeader = ({ budgets, theme, isDarkMode }: any) => {
   const overallProgress = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
 
   return (
-    <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={styles.summaryCard}>
-      <View style={styles.summaryContent}>
-        <View style={styles.summaryLeft}>
-          <Text style={styles.summaryLabel}>Total Budget</Text>
-          <Text style={styles.summaryAmount}>₹{totalBudget.toLocaleString()}</Text>
+    <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: 'spring', damping: 18 }}>
+      <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={styles.summaryCard}>
+        <View style={styles.summaryContent}>
+          <View style={styles.summaryLeft}>
+            <Text style={styles.summaryLabel}>Total Budget</Text>
+            <Text style={styles.summaryAmount}>₹{totalBudget.toLocaleString()}</Text>
+            <Text style={styles.summarySpent}>₹{totalSpent.toLocaleString()} spent</Text>
+          </View>
+          <CircularProgress size={60} strokeWidth={6} progress={overallProgress} color="white" backgroundColor="rgba(255,255,255,0.2)" />
         </View>
-        <CircularProgress size={60} strokeWidth={6} progress={overallProgress} color="white" backgroundColor="rgba(255,255,255,0.2)" />
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </MotiView>
   );
 };
+
+// --- EMPTY STATE ---
+const EmptyBudgetState = ({ theme, isDarkMode, onCreate }: any) => (
+  <MotiView
+    from={{ opacity: 0, translateY: 20 }}
+    animate={{ opacity: 1, translateY: 0 }}
+    style={[styles.emptyState, { backgroundColor: theme.card }]}
+  >
+    <LinearGradient colors={isDarkMode ? GRADIENTS.primaryDark : GRADIENTS.primary} style={styles.emptyIcon}>
+      <Ionicons name="pie-chart-outline" size={32} color="white" />
+    </LinearGradient>
+    <Text style={[styles.emptyTitle, { color: theme.text }]}>No budgets yet</Text>
+    <Text style={[styles.emptySub, { color: theme.subtext }]}>
+      Set spending limits per category to keep your finances on track
+    </Text>
+    <TouchableOpacity style={[styles.emptyCta, { backgroundColor: theme.tint }]} onPress={onCreate}>
+      <Text style={styles.emptyCtaText}>Create Your First Budget</Text>
+    </TouchableOpacity>
+  </MotiView>
+);
 
 // --- MAIN SCREEN ---
 export default function PremiumBudgetScreen() {
   const { isDarkMode } = useThemeStore();
   const theme = isDarkMode ? Colors.dark : Colors.light;
   const { user, isLoading: authLoading } = useAuthStore();
-  const { budgets, isLoading, fetchBudgets, addBudget, deleteBudget } = useBudgetStore();
+  const { budgets, isLoading, isInitialized, fetchBudgets, addBudget, deleteBudget } = useBudgetStore() as any;
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (user?.uid) {
       useBudgetStore.getState().initialize(user.uid);
-      fetchBudgets(user.uid);
     }
   }, [user?.uid]);
 
@@ -196,25 +264,28 @@ export default function PremiumBudgetScreen() {
       `Are you sure you want to delete the "${budget.category}" budget?`,
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
+        {
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             await deleteBudget(budget);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } 
+          }
         }
       ]
     );
   };
 
-  if (authLoading || (isLoading && budgets.length === 0)) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={theme.tint} />
-      </View>
-    );
-  }
+  const handleRefresh = async () => {
+    if (!user?.uid) return;
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    useBudgetStore.setState({ lastFetched: null });
+    await fetchBudgets(user.uid);
+    setRefreshing(false);
+  };
+
+  const showSkeleton = authLoading || (isLoading && budgets.length === 0 && !isInitialized);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -231,32 +302,48 @@ export default function PremiumBudgetScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          {budgets.length > 0 && <SummaryHeader budgets={budgets} theme={theme} isDarkMode={isDarkMode} />}
-          <View style={styles.section}>
-            {budgets.map((budget) => (
-              <PremiumBudgetCard 
-                key={budget.id} 
-                budget={budget} 
-                theme={theme} 
-                isDarkMode={isDarkMode}
-                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                onLongPress={() => confirmDelete(budget)} // Trigger alert on long press
-              />
-            ))}
-          </View>
-        </ScrollView>
+        {showSkeleton ? (
+          <BudgetSkeleton theme={theme} />
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.tint} colors={[theme.tint]} />
+            }
+          >
+            {budgets.length === 0 ? (
+              <EmptyBudgetState theme={theme} isDarkMode={isDarkMode} onCreate={() => setIsModalVisible(true)} />
+            ) : (
+              <>
+                <SummaryHeader budgets={budgets} theme={theme} isDarkMode={isDarkMode} />
+                <View style={styles.section}>
+                  {budgets.map((budget: Budget, idx: number) => (
+                    <PremiumBudgetCard
+                      key={budget.id}
+                      budget={budget}
+                      theme={theme}
+                      index={idx}
+                      onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                      onLongPress={() => confirmDelete(budget)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        )}
       </SafeAreaView>
 
-      <AddBudgetModal 
-        visible={isModalVisible} onClose={() => setIsModalVisible(false)} 
+      <AddBudgetModal
+        visible={isModalVisible} onClose={() => setIsModalVisible(false)}
         onSave={handleAddBudget} theme={theme} isDarkMode={isDarkMode}
       />
     </View>
   );
 }
 
-// --- STYLES (Keep existing, added modal styles) ---
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10, marginBottom: 20 },
@@ -270,6 +357,7 @@ const styles = StyleSheet.create({
   summaryLeft: { flex: 1 },
   summaryLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '700' },
   summaryAmount: { color: 'white', fontSize: 24, fontWeight: '900' },
+  summarySpent: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600', marginTop: 2 },
   section: { gap: 12 },
   cardWrapper: { marginBottom: 8 },
   budgetCard: { flexDirection: 'row', borderRadius: 20, padding: 16, borderWidth: 1 },
@@ -280,7 +368,14 @@ const styles = StyleSheet.create({
   categoryHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   categoryIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   categoryName: { fontWeight: '800', fontSize: 16 },
-  
+
+  emptyState: { alignItems: 'center', padding: 40, borderRadius: 28, marginTop: 20 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  emptyTitle: { fontSize: 20, fontWeight: '900', marginBottom: 8 },
+  emptySub: { fontSize: 14, textAlign: 'center', marginBottom: 20, lineHeight: 20, paddingHorizontal: 10 },
+  emptyCta: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 16 },
+  emptyCtaText: { color: 'white', fontSize: 15, fontWeight: '800' },
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalKeyboardview: { width: '100%' },
   modalContainer: { borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40 },

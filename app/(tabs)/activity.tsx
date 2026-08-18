@@ -1,20 +1,20 @@
 // SmartBudget/app/(tabs)/activity-premium.tsx - FIXED CATEGORY SYSTEM
-import React, { useEffect, useState, useMemo } from "react";
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, TouchableOpacity, TextInput, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import * as Haptics from 'expo-haptics';
-import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from "expo-router";
+import { MotiView } from 'moti';
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useTransactionStore, useTransactionData, Transaction } from '../_lib/useTransactionStore'; 
-import { useAuthStore } from '../_lib/useAuthStore'; 
-import { useThemeStore } from '../_lib/useThemeStore';
+import { CATEGORIES } from '../../constants/category';
 import { Colors } from '../../constants/theme';
-import { CATEGORIES, getCategoryInfo } from '../../constants/category';
-import { getCategoryIcon, getCategoryColor } from '../_lib/autoCategorize';
+import { getCategoryColor, getCategoryIcon } from '../_lib/autoCategorize';
+import { useAuthStore } from '../_lib/useAuthStore';
+import { useThemeStore } from '../_lib/useThemeStore';
+import { Transaction, useTransactionData, useTransactionStore } from '../_lib/useTransactionStore';
 
 const GRADIENTS = {
   primary: ['#6366F1', '#8B5CF6', '#A855F7'] as const,
@@ -173,6 +173,25 @@ const StatsSummaryCard = ({ stats, theme, isDarkMode }: any) => (
       </View>
     </LinearGradient>
   </MotiView>
+);
+
+// 💀 SKELETON LOADER
+const SkeletonBlock = ({ style, theme }: any) => (
+  <MotiView
+    style={[{ backgroundColor: theme.border, borderRadius: 16, overflow: 'hidden' }, style]}
+    from={{ opacity: 0.4 }}
+    animate={{ opacity: 1 }}
+    transition={{ type: 'timing', duration: 800, loop: true }}
+  />
+);
+
+const ActivitySkeleton = ({ theme }: any) => (
+  <View style={{ paddingHorizontal: 20 }}>
+    <SkeletonBlock theme={theme} style={{ height: 12, width: 80, marginBottom: 12 }} />
+    <SkeletonBlock theme={theme} style={{ height: 76, borderRadius: 20, marginBottom: 12 }} />
+    <SkeletonBlock theme={theme} style={{ height: 76, borderRadius: 20, marginBottom: 12 }} />
+    <SkeletonBlock theme={theme} style={{ height: 76, borderRadius: 20 }} />
+  </View>
 );
 
 export default function PremiumActivityScreen() {

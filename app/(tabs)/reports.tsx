@@ -199,6 +199,100 @@ const exportToText = async (reportData: any, userName: string) => {
   }
 };
 
+// 📊 6-MONTH TREND BAR CHART (animated)
+const MonthlyBarChart = ({ data, theme }: any) => {
+  const maxValue = Math.max(...data.map((d: any) => d.expense), 1);
+  const barAreaHeight = 120;
+
+  return (
+    <View style={[styles.categoryItem, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.card }]}>
+      <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 16, marginBottom: 16 }]}>
+        6-Month Trend
+      </Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        {data.map((month: any, idx: number) => {
+          const barHeight = (month.expense / maxValue) * barAreaHeight;
+          const isCurrentMonth = idx === data.length - 1;
+          return (
+            <View key={month.label + idx} style={{ alignItems: 'center', flex: 1 }}>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: theme.subtext, marginBottom: 4, height: 12 }}>
+                {month.expense > 0 ? `${Math.round(month.expense / 1000)}k` : ''}
+              </Text>
+              <View style={{ height: barAreaHeight, justifyContent: 'flex-end' }}>
+                <MotiView
+                  from={{ height: 0 }}
+                  animate={{ height: Math.max(barHeight, 4) }}
+                  transition={{ type: 'timing', duration: 700, delay: idx * 80 }}
+                  style={{
+                    width: 18,
+                    borderRadius: 6,
+                    backgroundColor: isCurrentMonth ? theme.tint : theme.tint + '55',
+                  }}
+                />
+              </View>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: isCurrentMonth ? theme.text : theme.subtext, marginTop: 6 }}>
+                {month.label}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+// 🍩 CATEGORY DONUT (visual complement to the detailed list below it)
+const CategoryDonut = ({ categories, theme }: any) => {
+  const size = 160;
+  const strokeWidth = 24;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const total = categories.reduce((s: number, c: any) => s + c.amount, 0);
+  let cumulative = 0;
+
+  return (
+    <View style={[styles.categoryItem, { flexDirection: 'column', alignItems: 'center', backgroundColor: theme.card }]}>
+      <Text style={[styles.sectionTitle, { color: theme.text, fontSize: 16, marginBottom: 16, alignSelf: 'flex-start' }]}>
+        Spending Split
+      </Text>
+      <MotiView
+        from={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: 'spring', damping: 14 }}
+        style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <Svg width={size} height={size}>
+          <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
+            {categories.map((cat: any) => {
+              const segLength = total > 0 ? (cat.amount / total) * circumference : 0;
+              const dashOffset = -cumulative;
+              cumulative += segLength;
+              return (
+                <Circle
+                  key={cat.name}
+                  cx={size / 2} cy={size / 2} r={radius}
+                  stroke={cat.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={`${segLength} ${circumference - segLength}`}
+                  strokeDashoffset={dashOffset}
+                  fill="none"
+                  strokeLinecap={categories.length === 1 ? 'butt' : 'round'}
+                />
+              );
+            })}
+          </G>
+        </Svg>
+        <View style={{ position: 'absolute', alignItems: 'center' }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.subtext }}>Total</Text>
+          <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>
+            ₹{total >= 1000 ? `${(total / 1000).toFixed(1)}k` : Math.round(total)}
+          </Text>
+        </View>
+      </MotiView>
+    </View>
+  );
+};
+
 // 📋 REPORT SUMMARY CARD
 const ReportSummaryCard = ({ label, value, icon, gradient, theme }: any) => (
   <View style={[styles.summaryCard, { backgroundColor: theme.card }]}>

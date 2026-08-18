@@ -241,7 +241,7 @@ export default function PremiumBudgetScreen() {
   const { isDarkMode } = useThemeStore();
   const theme = isDarkMode ? Colors.dark : Colors.light;
   const { user, isLoading: authLoading } = useAuthStore();
-  const { budgets, isLoading, isInitialized, fetchBudgets, addBudget, deleteBudget } = useBudgetStore() as any;
+    const { budgets, isLoading, isInitialized, addBudget, deleteBudget } = useBudgetStore() as any;
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 

@@ -27,6 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle } from 'react-native-svg';
 
 import { Colors } from '../../constants/theme';
+import { generateInsights, Insight } from '../_lib/insightsEngine';
 import { useAuthStore } from '../_lib/useAuthStore';
 import { useBudgetStore } from '../_lib/useBudgetStore';
 import { useGoalsStore } from '../_lib/useGoalsStore';
@@ -218,11 +219,11 @@ const BalanceCard = ({ balance, income, expense, theme }: any) => {
             style={styles.quickActionBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/(tabs)/activity');
+              router.push('/(tabs)/reports');
             }}
           >
             <Ionicons name="bar-chart" size={20} color="white" />
-            <Text style={styles.quickActionText}>Activity</Text>
+            <Text style={styles.quickActionText}>Reports</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -339,6 +340,7 @@ const BudgetMiniCard = ({ budget, theme }: any) => {
     </View>
   );
 };
+
 // 🧠 INSIGHT CARD
 const INSIGHT_COLORS: Record<string, [string, string]> = {
   critical: ['#F87171', '#EF4444'],
@@ -366,6 +368,7 @@ const InsightCard = ({ insight, theme, index }: { insight: Insight; theme: any; 
     </MotiView>
   );
 };
+
 // 🔥 TRENDING TRANSACTION CARD
 const TrendingCard = ({ transaction, theme, index }: any) => (
   <MotiView
@@ -418,7 +421,7 @@ export default function PremiumDashboard() {
     totalExpense,
   } = useTransactionData();
 
-   const budgets = useBudgetStore(state => state.budgets);
+  const budgets = useBudgetStore(state => state.budgets);
   const goals = useGoalsStore(state => state.goals);
   const insights = React.useMemo(() => generateInsights(transactions, budgets), [transactions, budgets]);
   const addContribution = useGoalsStore(state => state.addContribution);
@@ -442,19 +445,13 @@ export default function PremiumDashboard() {
     }
   }, [user?.uid, isAuthInitialized]);
 
-  // Transactions are already live via onSnapshot, so pull-to-refresh here
-  // mainly re-syncs budgets/goals (which use a fetch+cache pattern) and
-  // gives the user a tactile "everything is current" confirmation.
+  // Transactions, budgets, and goals are all live via onSnapshot now, so
+  // pull-to-refresh has nothing left to manually fetch — it's kept purely
+  // as tactile confirmation that "everything is current."
   const handleRefresh = async () => {
-    if (!user?.uid) return;
-    setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      useBudgetStore.setState({ lastFetched: null });
-      await useBudgetStore.getState().fetchBudgets(user.uid);
-    } finally {
-      setRefreshing(false);
-    }
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 400);
   };
 
   const handleAddContribution = (goal: any) => {
@@ -565,6 +562,24 @@ export default function PremiumDashboard() {
               expense={totalExpense}
               theme={theme}
             />
+
+            {/* SMART INSIGHTS */}
+            {insights.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>Smart Insights</Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+                >
+                  {insights.map((insight, idx) => (
+                    <InsightCard key={insight.id} insight={insight} theme={theme} index={idx} />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             {/* WALLET GOALS */}
             <View style={styles.section}>
@@ -825,6 +840,39 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   seeAll: { fontSize: 14, fontWeight: '800' },
+
+  // Insight Cards
+  insightCard: {
+    width: 220,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  insightGradient: {
+    padding: 16,
+    minHeight: 130,
+  },
+  insightIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  insightTitle: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  insightMessage: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+
   goalCard: { borderRadius: 24, padding: 20 },
   goalContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   goalIconCircle: { width: 28, height: 28, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 8 },

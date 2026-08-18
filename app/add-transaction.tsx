@@ -51,6 +51,7 @@ export default function PremiumAddTransactionScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+    const [errorPulse, setErrorPulse] = useState(0);
 
   // --- DYNAMIC CATEGORY MERGING ---
   // This merges your default categories with the new ones you added in the Budget screen
